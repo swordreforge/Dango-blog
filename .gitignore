@@ -1,0 +1,67 @@
+# 编译产物
+myblog-gogogo
+myblog-gogogo.exe
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go 编译缓存
+*.o
+*.a
+*.prof
+
+# Go 依赖
+vendor/
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 数据库文件
+db/data/*.db
+db/data/*.db-shm
+db/data/*.db-wal
+db/data/*.db.backup*
+db/data/*.db.bak
+
+# GeoIP 数据库
+data/GeoLite2-City.mmdb
+data/GeoLite2-City.mmdb.*
+
+# 音乐文件
+music/*.mp3
+music/*.wav
+music/*.flac
+music/*.m4a
+music/*.ogg
+
+# 附件文件
+attachments/*/*
+!attachments/.gitkeep
+
+# 图片文件（保留示例）
+img/*.png
+img/*.jpg
+img/*.jpeg
+img/*.gif
+img/*.webp
+img/*.svg
+!img/.gitkeep
+
+# 临时文件
+*.tmp
+*.temp
+*.log
+*.bak
+*.backup
+
+# 系统文件
+Thumbs.db
+.DS_Store
