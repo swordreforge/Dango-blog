@@ -95,7 +95,7 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
 // decryptPassword 解密密码
 func (s *AuthService) decryptPassword(encryptedPassword, sessionID, clientPublicKey string) (string, error) {
 	s.sessionManager.mu.RLock()
-	ecc, exists := s.sessionManager.sessions[sessionID]
+	ecc, exists := s.sessionManager.Sessions[sessionID]
 	s.sessionManager.mu.RUnlock()
 
 	if !exists {
@@ -144,7 +144,7 @@ func (s *AuthService) GenerateECCSession(sessionID string) (*crypto.ECCManager, 
 	}
 
 	s.sessionManager.mu.Lock()
-	s.sessionManager.sessions[sessionID] = ecc
+	s.sessionManager.Sessions[sessionID] = ecc
 	s.sessionManager.mu.Unlock()
 
 	return ecc, nil
@@ -153,7 +153,7 @@ func (s *AuthService) GenerateECCSession(sessionID string) (*crypto.ECCManager, 
 // GetECCSession 获取ECC加密会话
 func (s *AuthService) GetECCSession(sessionID string) (*crypto.ECCManager, error) {
 	s.sessionManager.mu.RLock()
-	ecc, exists := s.sessionManager.sessions[sessionID]
+	ecc, exists := s.sessionManager.Sessions[sessionID]
 	s.sessionManager.mu.RUnlock()
 
 	if !exists {

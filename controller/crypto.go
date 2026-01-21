@@ -5,22 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"sync"
 	"time"
 
 	"myblog-gogogo/crypto"
+	"myblog-gogogo/service"
 )
-
-// SessionManager 会话管理器
-type SessionManager struct {
-	sessions map[string]*crypto.ECCManager
-	mu       sync.RWMutex
-}
-
-// 全局会话管理器实例
-var sessionManager = &SessionManager{
-	sessions: make(map[string]*crypto.ECCManager),
-}
 
 // generateSessionID 生成会话ID
 func generateSessionID() string {
@@ -36,40 +25,34 @@ func GetPublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 获取全局会话管理器
+	sessionManager := service.GetSessionManager()
+
 	// 生成或获取会话ID
 	sessionID := r.URL.Query().Get("session_id")
 	if sessionID == "" {
 		sessionID = generateSessionID()
 	}
 
-	// 检查会话是否已存在且未过期
-	sessionManager.mu.RLock()
-	ecc, exists := sessionManager.sessions[sessionID]
-	sessionManager.mu.RUnlock()
-
-	if !exists || ecc.IsExpired() {
-		// 创建新的ECC管理器
-		newECC, err := crypto.NewECCManager(sessionID)
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"success": false,
-				"error":   "failed to generate ECC keys",
-			})
-			return
-		}
-
-		// 存储会话
-		sessionManager.mu.Lock()
-		sessionManager.sessions[sessionID] = newECC
-		sessionManager.mu.Unlock()
-
-		ecc = newECC
+	// 创建新的ECC管理器
+	newECC, err := crypto.NewECCManager(sessionID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "failed to generate ECC keys",
+		})
+		return
 	}
 
+	// 存储会话（使用全局会话管理器）
+	sessionManager.Lock()
+	sessionManager.Sessions[sessionID] = newECC
+	sessionManager.Unlock()
+
 	// 获取公钥（JWK格式）
-	publicKeyJWK := ecc.GetPublicKeyJWK()
+	publicKeyJWK := newECC.GetPublicKeyJWK()
 
 	// 返回公钥信息
 	response := map[string]interface{}{
@@ -79,8 +62,8 @@ func GetPublicKey(w http.ResponseWriter, r *http.Request) {
 		"key_format":  "jwk",
 		"algorithm":   "ECDH-ES",
 		"curve":       "P-256",
-		"expires_at":  ecc.GetExpiry().Unix(),
-		"expires_in":  int(time.Until(ecc.GetExpiry()).Seconds()),
+		"expires_at":  newECC.GetExpiry().Unix(),
+		"expires_in":  int(time.Until(newECC.GetExpiry()).Seconds()),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -122,10 +105,13 @@ func DecryptData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 获取全局会话管理器
+	sessionManager := service.GetSessionManager()
+
 	// 获取会话
-	sessionManager.mu.RLock()
-	ecc, exists := sessionManager.sessions[req.SessionID]
-	sessionManager.mu.RUnlock()
+	sessionManager.RLock()
+	ecc, exists := sessionManager.Sessions[req.SessionID]
+	sessionManager.RUnlock()
 
 	if !exists {
 		w.Header().Set("Content-Type", "application/json")
@@ -173,19 +159,21 @@ func DecryptData(w http.ResponseWriter, r *http.Request) {
 
 // CleanupExpiredSessions 清理过期会话（定期调用）
 func CleanupExpiredSessions() {
-	sessionManager.mu.Lock()
-	defer sessionManager.mu.Unlock()
+	sessionManager := service.GetSessionManager()
+	sessionManager.Lock()
+	defer sessionManager.Unlock()
 
-	for sessionID, ecc := range sessionManager.sessions {
+	for sessionID, ecc := range sessionManager.Sessions {
 		if ecc.IsExpired() {
-			delete(sessionManager.sessions, sessionID)
+			delete(sessionManager.Sessions, sessionID)
 		}
 	}
 }
 
 // GetSessionCount 获取当前活跃会话数
 func GetSessionCount() int {
-	sessionManager.mu.RLock()
-	defer sessionManager.mu.RUnlock()
-	return len(sessionManager.sessions)
+	sessionManager := service.GetSessionManager()
+	sessionManager.RLock()
+	defer sessionManager.RUnlock()
+	return len(sessionManager.Sessions)
 }

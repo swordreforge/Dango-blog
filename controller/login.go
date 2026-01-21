@@ -3,13 +3,25 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	apperrors "myblog-gogogo/pkg/errors"
 	"myblog-gogogo/pkg/dto"
 	"myblog-gogogo/service"
 )
 
-var authService = service.NewAuthService()
+var (
+	authService     *service.AuthService
+	authServiceOnce sync.Once
+)
+
+// getAuthService 获取认证服务实例（延迟初始化）
+func getAuthService() *service.AuthService {
+	authServiceOnce.Do(func() {
+		authService = service.NewAuthService()
+	})
+	return authService
+}
 
 // LoginHandler 登录API处理器
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +37,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 调用认证服务
-	resp, err := authService.Login(&req)
+	resp, err := getAuthService().Login(&req)
 	if err != nil {
 		apperrors.SendError(w, err)
 		return

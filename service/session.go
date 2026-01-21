@@ -10,18 +10,38 @@ import (
 
 // SessionManager 会话管理器
 type SessionManager struct {
-	sessions map[string]*crypto.ECCManager
+	Sessions map[string]*crypto.ECCManager
 	mu       sync.RWMutex
 }
 
 // 全局会话管理器实例
 var sessionManager = &SessionManager{
-	sessions: make(map[string]*crypto.ECCManager),
+	Sessions: make(map[string]*crypto.ECCManager),
 }
 
 // GetSessionManager 获取会话管理器实例
 func GetSessionManager() *SessionManager {
 	return sessionManager
+}
+
+// Lock 获取写锁
+func (sm *SessionManager) Lock() {
+	sm.mu.Lock()
+}
+
+// Unlock 释放写锁
+func (sm *SessionManager) Unlock() {
+	sm.mu.Unlock()
+}
+
+// RLock 获取读锁
+func (sm *SessionManager) RLock() {
+	sm.mu.RLock()
+}
+
+// RUnlock 释放读锁
+func (sm *SessionManager) RUnlock() {
+	sm.mu.RUnlock()
 }
 
 // generateSessionID 生成会话ID
@@ -36,9 +56,9 @@ func CleanupExpiredSessions() {
 	sessionManager.mu.Lock()
 	defer sessionManager.mu.Unlock()
 
-	for sessionID, ecc := range sessionManager.sessions {
+	for sessionID, ecc := range sessionManager.Sessions {
 		if ecc.IsExpired() {
-			delete(sessionManager.sessions, sessionID)
+			delete(sessionManager.Sessions, sessionID)
 		}
 	}
 }
@@ -47,5 +67,5 @@ func CleanupExpiredSessions() {
 func GetSessionCount() int {
 	sessionManager.mu.RLock()
 	defer sessionManager.mu.RUnlock()
-	return len(sessionManager.sessions)
+	return len(sessionManager.Sessions)
 }
