@@ -1,8 +1,8 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -73,104 +73,21 @@ func CheckPassageAccess(next http.Handler) http.Handler {
 				return
 			}
 
-			// 未发布的文章，返回特殊状态码
-			log.Printf("[CheckPassageAccess] Non-admin user, returning 423")
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusLocked) // 423 Locked - 表示资源被锁定/不可用
-
-			response := map[string]interface{}{
-				"success":     false,
-				"message":     "文章尚未发布",
-				"status":      targetPassage.Status,
-				"is_scheduled": targetPassage.IsScheduled,
-			}
-
+			// 未发布的文章，将信息添加到上下文，让前端在右侧显示提示
+			log.Printf("[CheckPassageAccess] Non-admin user, adding unpublished info to context")
+			
+			// 将未发布信息添加到上下文中
+			ctx := context.WithValue(r.Context(), "passage_unpublished", true)
+			ctx = context.WithValue(ctx, "passage_status", targetPassage.Status)
+			ctx = context.WithValue(ctx, "passage_is_scheduled", targetPassage.IsScheduled)
+			
 			// 如果是定时发布，添加发布时间
-			publishedTime := "待定"
 			if targetPassage.IsScheduled && !targetPassage.PublishedAt.IsZero() {
-				publishedTime = targetPassage.PublishedAt.Format("2006-01-02 15:04:05")
-				response["published_at"] = publishedTime
+				ctx = context.WithValue(ctx, "passage_published_at", targetPassage.PublishedAt.Format("2006-01-02 15:04:05"))
 			}
-
-			// 返回一个包含处理逻辑的 HTML 页面
-			htmlResponse := fmt.Sprintf(`<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文章未发布</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 20px;
-        }
-        .notice-container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            text-align: center;
-        }
-        .notice-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-        }
-        .notice-title {
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 15px;
-            font-weight: 700;
-        }
-        .notice-message {
-            font-size: 16px;
-            color: #666;
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-        .notice-time {
-            font-size: 18px;
-            color: #d68910;
-            font-weight: 600;
-            background: rgba(255, 193, 7, 0.1);
-            padding: 10px 20px;
-            border-radius: 10px;
-            display: inline-block;
-            margin-bottom: 20px;
-        }
-        .back-link {
-            display: inline-block;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        .back-link:hover {
-            color: #764ba2;
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="notice-container">
-        <div class="notice-icon">🔒</div>
-        <div class="notice-title">文章尚未发布</div>
-        <div class="notice-message">您访问的文章还未发布，暂时无法查看。</div>
-        <div class="notice-time">预计发布时间：%s</div>
-        <a href="/" class="back-link">返回首页</a>
-    </div>
-</body>
-</html>`, publishedTime)
-
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusLocked)
-			w.Write([]byte(htmlResponse))
+			
+			// 继续处理请求，让前端在右侧显示未发布提示
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 

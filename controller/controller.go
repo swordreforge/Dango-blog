@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,19 +36,25 @@ func getAppearanceSettings() *settings.AppearanceSettings {
 	return service.GetAppearanceSettingsSafe()
 }
 
-func init() {
+// InitTemplates 初始化模板(在 templateFS 设置后调用)
+func InitTemplates() {
 	// 初始化模板
 	// 优先使用嵌入的文件系统（如果已设置），否则回退到本地文件系统
 	// 这样可以支持编译后的单文件部署和开发时的动态加载
-	
+
 	var tmpl *template.Template
 	var err error
-	
+
 	// 尝试从嵌入的文件系统加载模板（如果已设置）
 	if templateFS != nil {
 		tmpl, err = template.ParseFS(templateFS, "template/*.html", "template/admin/*.html", "template/status/*.html")
+		if err != nil {
+			log.Printf("[Embed] Failed to parse templates from embed FS: %v", err)
+		} else {
+			log.Printf("[Embed] Successfully loaded templates from embed FS")
+		}
 	}
-	
+
 	// 如果嵌入失败或未设置，尝试从本地文件系统加载
 	if err != nil || templateFS == nil {
 		templatePath := "template/*.html"
@@ -271,46 +278,72 @@ func PassageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var passageID int
+		var passageStatus string
 		for _, p := range passages {
 			if p.Title == doc.Title {
 				passageID = p.ID
+				passageStatus = p.Status
 				break
 			}
 		}
 
+		// 检查文章状态，如果不是 published 状态，从上下文中读取未发布信息
+		var isUnpublished bool
+		var passageStatusInfo string
+		var isScheduled bool
+		var publishedAt string
+		
+		if passageStatus != "published" {
+			// 从上下文中读取未发布信息
+			isUnpublished = true
+			passageStatusInfo = passageStatus
+			
+			if val := r.Context().Value("passage_is_scheduled"); val != nil {
+				isScheduled = val.(bool)
+			}
+			if val := r.Context().Value("passage_published_at"); val != nil {
+				publishedAt = val.(string)
+			}
+		}
+
 		// 渲染模板（服务器端渲染）
-				data := map[string]interface{}{
-					"title":                    doc.Title,
-					"Content":                  template.HTML(doc.Content),
-					"Date":                     articleDate,
-					"Path":                     strings.TrimPrefix(r.URL.Path, "/passage/"),
-									"PassageID":                passageID,
-									"ReadTime":                 service.CalculateReadTime(doc.Content),
-									"Settings":                 appearanceSettings,
-									"SwitchNotice":             templateSettings.SwitchNotice,
-									"SwitchNoticeText":         templateSettings.SwitchNoticeText,
-									"ExternalLinkWarning":      templateSettings.ExternalLinkWarning,
-									"ExternalLinkWhitelist":    templateSettings.ExternalLinkWhitelist,
-									"ExternalLinkWarningText":  templateSettings.ExternalLinkWarningText,
-									"Live2DEnabled":            templateSettings.Live2DEnabled,
-									"Live2DShowOnIndex":        templateSettings.Live2DShowOnIndex,
-									"Live2DShowOnPassage":      templateSettings.Live2DShowOnPassage,
-									"Live2DShowOnCollect":      templateSettings.Live2DShowOnCollect,
-									"Live2DShowOnAbout":        templateSettings.Live2DShowOnAbout,
-									"Live2DShowOnAdmin":        templateSettings.Live2DShowOnAdmin,
-									"Live2DModelId":            templateSettings.Live2DModelId,
-									"Live2DModelPath":          templateSettings.Live2DModelPath,
-									"Live2DCDNPath":            templateSettings.Live2DCDNPath,
-									"Live2DPosition":           templateSettings.Live2DPosition,
-									"Live2DWidth":              templateSettings.Live2DWidth,
-									"Live2DHeight":             templateSettings.Live2DHeight,
-									"SponsorEnabled":           templateSettings.SponsorEnabled,
-									"SponsorTitle":             templateSettings.SponsorTitle,
-									"SponsorImage":             templateSettings.SponsorImage,
-									"SponsorDescription":       templateSettings.SponsorDescription,
-									"SponsorButtonText":        templateSettings.SponsorButtonText,
-								}
-								renderTemplate(w, "passage.html", data)
+		data := map[string]interface{}{
+			"title":                    doc.Title,
+			"Content":                  template.HTML(doc.Content),
+			"Date":                     articleDate,
+			"Path":                     strings.TrimPrefix(r.URL.Path, "/passage/"),
+			"PassageID":                passageID,
+			"ReadTime":                 service.CalculateReadTime(doc.Content),
+			"Settings":                 appearanceSettings,
+			"SwitchNotice":             templateSettings.SwitchNotice,
+			"SwitchNoticeText":         templateSettings.SwitchNoticeText,
+			"ExternalLinkWarning":      templateSettings.ExternalLinkWarning,
+			"ExternalLinkWhitelist":    templateSettings.ExternalLinkWhitelist,
+			"ExternalLinkWarningText":  templateSettings.ExternalLinkWarningText,
+			"Live2DEnabled":            templateSettings.Live2DEnabled,
+			"Live2DShowOnIndex":        templateSettings.Live2DShowOnIndex,
+			"Live2DShowOnPassage":      templateSettings.Live2DShowOnPassage,
+			"Live2DShowOnCollect":      templateSettings.Live2DShowOnCollect,
+			"Live2DShowOnAbout":        templateSettings.Live2DShowOnAbout,
+			"Live2DShowOnAdmin":        templateSettings.Live2DShowOnAdmin,
+			"Live2DModelId":            templateSettings.Live2DModelId,
+			"Live2DModelPath":          templateSettings.Live2DModelPath,
+			"Live2DCDNPath":            templateSettings.Live2DCDNPath,
+			"Live2DPosition":           templateSettings.Live2DPosition,
+			"Live2DWidth":              templateSettings.Live2DWidth,
+			"Live2DHeight":             templateSettings.Live2DHeight,
+			"SponsorEnabled":           templateSettings.SponsorEnabled,
+			"SponsorTitle":             templateSettings.SponsorTitle,
+			"SponsorImage":             templateSettings.SponsorImage,
+			"SponsorDescription":       templateSettings.SponsorDescription,
+			"SponsorButtonText":        templateSettings.SponsorButtonText,
+			// 未发布文章信息
+			"IsUnpublished":            isUnpublished,
+			"PassageStatus":            passageStatusInfo,
+			"IsScheduled":              isScheduled,
+			"PublishedAt":              publishedAt,
+		}
+		renderTemplate(w, "passage.html", data)
 		return
 	}
 
@@ -487,6 +520,10 @@ func RenderStatusPage(w http.ResponseWriter, statusCode int) {
 		templateFile = "409.html"
 		title = "冲突"
 		codeStr = "409"
+	case 423:
+		templateFile = "423.html"
+		title = "文章未发布"
+		codeStr = "423"
 	case 500:
 		templateFile = "500.html"
 		title = "服务器错误"
@@ -556,6 +593,8 @@ func StatusHandler(w http.ResponseWriter, r *http.Request) {
 		statusCode = 405
 	case "409":
 		statusCode = 409
+	case "423":
+		statusCode = 423
 	case "500":
 		statusCode = 500
 	case "999":
