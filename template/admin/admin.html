@@ -6847,158 +6847,193 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
   submitBtn.disabled = true;
   
   try {
-    // 获取文件
+    // 获取文件和文章内容
     const files = selectedFiles;
-    if (files.length === 0) {
-      showToast('请选择要上传的文件', 'warning');
+    const content = document.getElementById('uploadContent').value.trim();
+
+    // 检查是否至少提供了一种方式
+    if (files.length === 0 && !content) {
+      showToast('请选择要上传的文件或输入文章内容', 'warning');
       submitBtn.textContent = originalText;
       submitBtn.disabled = false;
       return;
     }
-    
-    // 创建FormData
-    const formData = new FormData();
-    formData.append('file', files[0]);
-    
-    // 添加日期参数
-    const year = document.getElementById('uploadYear').value;
-    const month = document.getElementById('uploadMonth').value;
-    const day = document.getElementById('uploadDay').value;
-    
-    if (year) formData.append('year', year);
-    if (month) formData.append('month', month);
-    if (day) formData.append('day', day);
 
-    // 发送上传请求
+    let result;
+
+    // 如果有文件上传,先上传文件
+    if (files.length > 0) {
+      // 创建FormData
+      const formData = new FormData();
+      formData.append('file', files[0]);
+
+      // 添加日期参数
+      const year = document.getElementById('uploadYear').value;
+      const month = document.getElementById('uploadMonth').value;
+      const day = document.getElementById('uploadDay').value;
+
+      if (year) formData.append('year', year);
+      if (month) formData.append('month', month);
+      if (day) formData.append('day', day);
+
+      // 发送上传请求
+      const token = localStorage.getItem('auth_token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+
+      // 检查HTTP状态码
+      if (!uploadResponse.ok) {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+
+        // 尝试解析错误信息
+        let errorMessage = '上传失败：';
+        try {
+          const uploadResult = await uploadResponse.json();
+          const errorCode = uploadResult.code || 'UNKNOWN_ERROR';
+
+          // 根据HTTP状态码和错误码显示提示
+          switch (uploadResponse.status) {
+            case 405:
+              errorMessage += '请求方法不允许，请刷新页面重试';
+              break;
+            case 400:
+              switch (errorCode) {
+                case 'PARSE_FORM_FAILED':
+                  errorMessage += '表单解析失败，请重试';
+                  break;
+                case 'NO_FILE_PROVIDED':
+                  errorMessage += '未选择文件，请选择要上传的文件';
+                  break;
+                default:
+                  errorMessage += uploadResult.message || '请求参数错误';
+              }
+              break;
+            case 413:
+              errorMessage += '文件过大，请确保文件不超过10MB';
+              break;
+            case 415:
+              errorMessage += '不支持的文件类型，仅支持 .md, .jpg, .jpeg, .png, .gif, .webp, .bmp, .svg 文件';
+              break;
+            case 500:
+              switch (errorCode) {
+                case 'FILE_SAVE_FAILED':
+                  errorMessage += '文件保存失败，请检查服务器权限或联系管理员';
+                  break;
+                default:
+                  errorMessage += '服务器内部错误，请稍后重试';
+              }
+              break;
+            default:
+              errorMessage += uploadResult.message || `服务器返回错误 (${uploadResponse.status})`;
+          }
+        } catch (e) {
+          errorMessage += `服务器返回错误 (${uploadResponse.status})，请稍后重试`;
+        }
+
+        showToast(errorMessage, 'error');
+        return;
+      }
+
+      result = await uploadResponse.json();
+
+      if (!result.success) {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        showToast('上传失败：' + (result.message || '未知错误'), 'error');
+        return;
+      }
+    } else {
+      // 直接使用输入的内容创建文章
+      result = {
+        success: true,
+        data: {
+          content: content,
+          is_markdown: true
+        }
+      };
+    }
+
+    // 获取表单数据
+    const title = document.getElementById('uploadTitle').value;
+    const author = document.getElementById('uploadAuthor').value;
+    const category = document.getElementById('uploadCategory').value;
+    const status = document.getElementById('uploadStatus').value;
+
+    // 获取选中的标签
+    const selectedTags = [];
+    document.querySelectorAll('#uploadTagSelector .tag-option.selected').forEach(option => {
+      selectedTags.push(option.dataset.tagName);
+    });
+
+    // 获取文章内容
+    let articleContent = '';
+    if (result.data && result.data.content) {
+      articleContent = result.data.content;
+    }
+
+    // 创建文章
     const token = localStorage.getItem('auth_token');
-    const headers = {};
+    const headers = {
+      'Content-Type': 'application/json'
+    };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch('/api/upload', {
+    const createResponse = await fetch('/api/admin/passages', {
       method: 'POST',
       headers: headers,
-      body: formData
+      body: JSON.stringify({
+        title: title,
+        content: articleContent,
+        author: author,
+        category: category,
+        tags: selectedTags.join(','),
+        status: status
+      })
     });
 
-    // 检查HTTP状态码
-    if (!response.ok) {
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
-      
-      // 尝试解析错误信息
-      let errorMessage = '上传失败：';
-      try {
-        const result = await response.json();
-        const errorCode = result.code || 'UNKNOWN_ERROR';
-        
-        // 根据HTTP状态码和错误码显示提示
-        switch (response.status) {
-          case 405:
-            errorMessage += '请求方法不允许，请刷新页面重试';
-            break;
-          case 400:
-            switch (errorCode) {
-              case 'PARSE_FORM_FAILED':
-                errorMessage += '表单解析失败，请重试';
-                break;
-              case 'NO_FILE_PROVIDED':
-                errorMessage += '未选择文件，请选择要上传的文件';
-                break;
-              default:
-                errorMessage += result.message || '请求参数错误';
-            }
-            break;
-          case 413:
-            errorMessage += '文件过大，请确保文件不超过10MB';
-            break;
-          case 415:
-            errorMessage += '不支持的文件类型，仅支持 .md, .jpg, .jpeg, .png, .gif, .webp, .bmp, .svg 文件';
-            break;
-          case 500:
-            switch (errorCode) {
-              case 'FILE_SAVE_FAILED':
-                errorMessage += '文件保存失败，请检查服务器权限或联系管理员';
-                break;
-              default:
-                errorMessage += '服务器内部错误，请稍后重试';
-            }
-            break;
-          default:
-            errorMessage += result.message || `服务器返回错误 (${response.status})`;
-        }
-      } catch (e) {
-        errorMessage += `服务器返回错误 (${response.status})，请稍后重试`;
-      }
-      
-      showToast(errorMessage, 'error');
-      return;
-    }
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      submitBtn.textContent = '上传成功!';
+    const createResult = await createResponse.json();
+
+    if (createResult.success) {
+      submitBtn.textContent = '创建成功!';
       submitBtn.style.background = 'rgba(255, 183, 122, 0.8)';
-      
+
       setTimeout(() => {
         closeModal('uploadModal');
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
         submitBtn.style.background = 'rgba(255, 183, 122, 0.8)';
         this.reset();
-        
+
         // 清空预览和文件列表
         uploadPreview.innerHTML = '';
         selectedFiles = [];
-        
+
         // 刷新文章列表
         fetchAdminData();
-        
-        showToast(`文件上传成功！类型: ${result.data.type}`, 'success');
+
+        showToast('文章创建成功！', 'success');
       }, 2000);
     } else {
       submitBtn.textContent = originalText;
       submitBtn.disabled = false;
-      
-      // 根据错误码显示友好的错误提示
-      const errorCode = result.code || 'UNKNOWN_ERROR';
-      let errorMessage = '上传失败：';
-      
-      switch (errorCode) {
-        case 'METHOD_NOT_ALLOWED':
-          errorMessage += '请求方法不允许，请刷新页面重试';
-          break;
-        case 'PARSE_FORM_FAILED':
-          errorMessage += '表单解析失败，请重试';
-          break;
-        case 'NO_FILE_PROVIDED':
-          errorMessage += '未选择文件，请选择要上传的文件';
-          break;
-        case 'FILE_TOO_LARGE':
-          errorMessage += '文件过大，请确保文件不超过10MB';
-          break;
-        case 'UNSUPPORTED_FILE_TYPE':
-          errorMessage += '不支持的文件类型，仅支持 .md, .jpg, .jpeg, .png, .gif, .webp, .bmp, .svg 文件';
-          break;
-        case 'FILE_SAVE_FAILED':
-          errorMessage += '文件保存失败，请检查服务器权限或联系管理员';
-          break;
-        case 'UPLOAD_FAILED':
-          errorMessage += result.message || '上传失败，请稍后重试';
-          break;
-        default:
-          errorMessage += result.message || '未知错误，请稍后重试';
-      }
-      
-      showToast(errorMessage, 'error');
+      showToast('创建失败：' + (createResult.message || '未知错误'), 'error');
     }
   } catch (error) {
-    console.error('上传失败:', error);
+    console.error('创建文章失败:', error);
     submitBtn.textContent = originalText;
     submitBtn.disabled = false;
-    showToast('上传失败，无法连接到服务器，请检查网络连接后重试', 'error');
+    showToast('创建失败，无法连接到服务器，请检查网络连接后重试', 'error');
   }
 });
 
