@@ -679,13 +679,9 @@ class AdminKeyboardManager {
         break;
         
       case 'Tab':
-        if (!isInput) {
-          // 如果不在输入框中，聚焦到第一个输入框
-          this.focusFirstInput(this.activeModal);
-          event.preventDefault();
-          return true;
-        }
-        break;
+        // 实现模态框内的循环 Tab 导航
+        this.handleTabNavigation(event);
+        return true;
         
       case 'ArrowDown':
       case 'ArrowUp':
@@ -1593,6 +1589,8 @@ class AdminKeyboardManager {
         mutation.addedNodes.forEach((node) => {
           if (node.classList && node.classList.contains('modal') && node.classList.contains('active')) {
             this.activeModal = node;
+            // 设置焦点陷阱
+            this.setupFocusTrap(node);
             // 自动聚焦到第一个输入框
             this.focusFirstInput(node);
           }
@@ -1610,6 +1608,92 @@ class AdminKeyboardManager {
       childList: true,
       subtree: true
     });
+  }
+  
+  // 设置焦点陷阱，确保焦点始终在模态框内
+  setupFocusTrap(modal) {
+    if (!modal) return;
+    
+    // 获取模态框中所有可聚焦的元素
+    const focusableElements = modal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    if (focusableElements.length === 0) return;
+    
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+    
+    // 监听模态框内的键盘事件
+    const trapFocus = (e) => {
+      if (e.key !== 'Tab') return;
+      
+      if (e.shiftKey) {
+        // Shift+Tab: 如果焦点在第一个元素，移到最后一个
+        if (document.activeElement === firstFocusable) {
+          e.preventDefault();
+          lastFocusable.focus();
+        }
+      } else {
+        // Tab: 如果焦点在最后一个元素，移到第一个
+        if (document.activeElement === lastFocusable) {
+          e.preventDefault();
+          firstFocusable.focus();
+        }
+      }
+    };
+    
+    // 添加事件监听器
+    modal.addEventListener('keydown', trapFocus);
+    
+    // 保存引用以便清理
+    modal._focusTrapHandler = trapFocus;
+  }
+  
+  // 处理模态框内的 Tab 导航
+  handleTabNavigation(event) {
+    if (!this.activeModal) return;
+    
+    // 获取模态框中所有可聚焦的元素
+    const focusableElements = this.activeModal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    // 过滤掉不可见和禁用的元素
+    const visibleFocusable = Array.from(focusableElements).filter(el => {
+      const style = window.getComputedStyle(el);
+      return el.offsetParent !== null && 
+             style.display !== 'none' && 
+             style.visibility !== 'hidden' &&
+             !el.disabled;
+    });
+    
+    if (visibleFocusable.length === 0) return;
+    
+    const activeElement = document.activeElement;
+    const currentIndex = visibleFocusable.indexOf(activeElement);
+    
+    if (event.shiftKey) {
+      // Shift+Tab: 反向导航
+      event.preventDefault();
+      
+      if (currentIndex <= 0) {
+        // 如果在第一个元素，跳到最后一个
+        visibleFocusable[visibleFocusable.length - 1].focus();
+      } else {
+        visibleFocusable[currentIndex - 1].focus();
+      }
+    } else {
+      // Tab: 正向导航
+      event.preventDefault();
+      
+      if (currentIndex === -1 || currentIndex >= visibleFocusable.length - 1) {
+        // 如果没有焦点或在最后一个元素，跳到第一个
+        visibleFocusable[0].focus();
+      } else {
+        visibleFocusable[currentIndex + 1].focus();
+      }
+    }
   }
   
   // 聚焦到模态框中的第一个输入框
@@ -1637,6 +1721,12 @@ class AdminKeyboardManager {
 
   closeCurrentModal() {
     if (this.activeModal) {
+      // 清理焦点陷阱事件监听器
+      if (this.activeModal._focusTrapHandler) {
+        this.activeModal.removeEventListener('keydown', this.activeModal._focusTrapHandler);
+        delete this.activeModal._focusTrapHandler;
+      }
+      
       const closeBtn = this.activeModal.querySelector('.modal-close');
       if (closeBtn) {
         closeBtn.click();
