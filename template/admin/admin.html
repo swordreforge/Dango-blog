@@ -2961,6 +2961,24 @@ body.admin-focus-mode .modal-header {
     opacity: 0;
   }
 }
+
+/* 按钮焦点样式 */
+.btn-primary:focus,
+.btn-secondary:focus,
+.action-btn:focus,
+.btn-danger:focus {
+  outline: none;
+  border-color: rgba(255, 183, 122, 0.8);
+  box-shadow: 0 0 0 3px rgba(255, 183, 122, 0.3);
+}
+
+/* 模态框中的按钮焦点样式 */
+.modal .btn-primary:focus,
+.modal .btn-secondary:focus {
+  background: rgba(255, 183, 122, 0.2);
+  border-color: rgba(255, 183, 122, 0.8);
+  box-shadow: 0 0 0 3px rgba(255, 183, 122, 0.3);
+}
 </style>
 
 <!-- 键盘快捷键样式 -->

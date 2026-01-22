@@ -1619,10 +1619,41 @@ class AdminKeyboardManager {
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
     
-    if (focusableElements.length === 0) return;
+    // 使用相同的可见性检查逻辑
+    const visibleFocusable = Array.from(focusableElements).filter(el => {
+      // 检查是否禁用
+      if (el.disabled) return false;
+      
+      // 检查 tabindex 是否为 -1
+      if (el.getAttribute('tabindex') === '-1') return false;
+      
+      // 检查是否隐藏
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none') return false;
+      if (style.visibility === 'hidden') return false;
+      if (style.opacity === '0') return false;
+      
+      // 检查元素是否在视口中可见
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return false;
+      
+      // 检查父元素是否可见
+      let parent = el.parentElement;
+      while (parent && parent !== modal) {
+        const parentStyle = window.getComputedStyle(parent);
+        if (parentStyle.display === 'none' || parentStyle.visibility === 'hidden') {
+          return false;
+        }
+        parent = parent.parentElement;
+      }
+      
+      return true;
+    });
     
-    const firstFocusable = focusableElements[0];
-    const lastFocusable = focusableElements[focusableElements.length - 1];
+    if (visibleFocusable.length === 0) return;
+    
+    const firstFocusable = visibleFocusable[0];
+    const lastFocusable = visibleFocusable[visibleFocusable.length - 1];
     
     // 监听模态框内的键盘事件
     const trapFocus = (e) => {
@@ -1659,13 +1690,35 @@ class AdminKeyboardManager {
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
     
-    // 过滤掉不可见和禁用的元素
+    // 过滤掉不可见和禁用的元素 - 使用更可靠的检查
     const visibleFocusable = Array.from(focusableElements).filter(el => {
+      // 检查是否禁用
+      if (el.disabled) return false;
+      
+      // 检查 tabindex 是否为 -1
+      if (el.getAttribute('tabindex') === '-1') return false;
+      
+      // 检查是否隐藏
       const style = window.getComputedStyle(el);
-      return el.offsetParent !== null && 
-             style.display !== 'none' && 
-             style.visibility !== 'hidden' &&
-             !el.disabled;
+      if (style.display === 'none') return false;
+      if (style.visibility === 'hidden') return false;
+      if (style.opacity === '0') return false;
+      
+      // 检查元素是否在视口中可见
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return false;
+      
+      // 检查父元素是否可见
+      let parent = el.parentElement;
+      while (parent && parent !== this.activeModal) {
+        const parentStyle = window.getComputedStyle(parent);
+        if (parentStyle.display === 'none' || parentStyle.visibility === 'hidden') {
+          return false;
+        }
+        parent = parent.parentElement;
+      }
+      
+      return true;
     });
     
     if (visibleFocusable.length === 0) return;
