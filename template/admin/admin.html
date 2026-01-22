@@ -2707,6 +2707,247 @@ input[type="range"]::-moz-range-thumb:hover {
     width: 100%;
   }
 }
+
+/* 管理员聚焦模式样式 */
+body.admin-focus-mode {
+  outline: 3px solid rgba(255, 183, 122, 0.8);
+  outline-offset: -3px;
+  transition: outline 0.3s ease;
+}
+
+body.admin-focus-mode::before {
+  background: rgba(255, 183, 122, 0.15);
+  transition: background 0.3s ease;
+}
+
+/* 聚焦模式下标签页高亮 */
+body.admin-focus-mode .tab-btn.active {
+  background: rgba(255, 183, 122, 0.35);
+  border-color: rgba(255, 183, 122, 0.8);
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 15px rgba(255, 183, 122, 0.3);
+}
+
+body.admin-focus-mode .tab-btn:hover {
+  background: rgba(255, 183, 122, 0.2);
+  border-color: rgba(255, 183, 122, 0.6);
+}
+
+/* 聚焦模式下选中行高亮 */
+body.admin-focus-mode .data-table tr.selected {
+  background: rgba(255, 183, 122, 0.15);
+  border-left: 4px solid rgba(255, 183, 122, 0.8);
+}
+
+body.admin-focus-mode .data-table tr:hover {
+  background: rgba(255, 183, 122, 0.2);
+}
+
+/* 快捷键提示标签 */
+.shortcut-hint {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: rgba(255, 183, 122, 0.25);
+  border: 1px solid rgba(255, 183, 122, 0.5);
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: rgba(255, 183, 122, 0.95);
+  transition: all 0.3s ease;
+}
+
+.shortcut-hint:hover {
+  background: rgba(255, 183, 122, 0.35);
+  border-color: rgba(255, 183, 122, 0.7);
+}
+
+/* 聚焦模式提示 */
+.focus-mode-indicator {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 80px);
+  right: 20px;
+  padding: 10px 20px;
+  background: rgba(255, 183, 122, 0.9);
+  color: #fff;
+  border-radius: 25px;
+  font-size: 0.9em;
+  font-weight: 600;
+  z-index: 999;
+  box-shadow: 0 4px 15px rgba(255, 183, 122, 0.4);
+  animation: slideInRight 0.3s ease;
+  display: none;
+}
+
+body.admin-focus-mode .focus-mode-indicator {
+  display: block;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 聚焦模式下的按钮高亮 */
+body.admin-focus-mode .action-btn:hover,
+body.admin-focus-mode .btn-primary:hover,
+body.admin-focus-mode .btn-secondary:hover {
+  border-color: rgba(255, 183, 122, 0.7);
+  box-shadow: 0 0 10px rgba(255, 183, 122, 0.3);
+}
+
+/* 聚焦模式下的输入框 */
+body.admin-focus-mode .form-control:focus {
+  border-color: rgba(255, 183, 122, 0.8);
+  box-shadow: 0 0 0 3px rgba(255, 183, 122, 0.2);
+}
+
+/* 聚焦模式下的模态框 */
+body.admin-focus-mode .modal.active {
+  border-color: rgba(255, 183, 122, 0.6);
+}
+
+body.admin-focus-mode .modal-header {
+  border-bottom-color: rgba(255, 183, 122, 0.3);
+}
+
+/* 快捷键帮助模态框样式 */
+.shortcuts-help-modal .modal-body kbd {
+  background: rgba(255, 183, 122, 0.2);
+  border: 1px solid rgba(255, 183, 122, 0.5);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: monospace;
+  font-size: 0.9em;
+  color: rgba(255, 183, 122, 0.95);
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+}
+
+.shortcuts-help-modal .modal-body h4 {
+  color: rgba(255, 183, 122, 0.9);
+  margin-top: 20px;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.shortcuts-help-modal .modal-body ul {
+  list-style: none;
+  padding: 0;
+}
+
+.shortcuts-help-modal .modal-body li {
+  padding: 5px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Toast 提示样式 */
+.toast-container {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 80px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 25px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.95em;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  animation: slideInDown 0.3s ease;
+  min-width: 200px;
+}
+
+.toast.success {
+  border-color: rgba(0, 184, 148, 0.6);
+}
+
+.toast.error {
+  border-color: rgba(231, 76, 60, 0.6);
+}
+
+.toast.warning {
+  border-color: rgba(253, 203, 110, 0.6);
+}
+
+.toast.info {
+  border-color: rgba(0, 123, 255, 0.6);
+}
+
+.toast-icon {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.2em;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.toast-close:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.toast.closing {
+  animation: slideOutUp 0.3s ease forwards;
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutUp {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+}
 </style>
 
 <!-- 键盘快捷键样式 -->
