@@ -367,9 +367,11 @@ func UpdateMarkdownFile(filePath, title, content string) error {
 
 // GetMarkdownFilePath 根据文章ID和创建时间获取markdown文件路径
 func GetMarkdownFilePath(title string, createdAt time.Time) (string, error) {
+	// 清理标题作为文件名
+	cleanedTitle := SanitizeFilename(title)
 	// 根据创建时间构建文件路径
 	dateDir := createdAt.Format("2006/01/02")
-	markdownPath := filepath.Join("markdown", dateDir, title+".md")
+	markdownPath := filepath.Join("markdown", dateDir, cleanedTitle+".md")
 	return markdownPath, nil
 }
 

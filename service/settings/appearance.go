@@ -39,10 +39,10 @@ func GetAppearance() (*AppearanceSettings, error) {
 		BlurAmount:           "20px",
 		SaturateAmount:       "180%",
 		DarkModeEnabled:      false,
-		NavbarGlassColor:     "rgba(255, 255, 255, 0.85)",
+		NavbarGlassColor:     "rgba(220, 138, 221, 0.15)",
 		NavbarTextColor:      "#333333",
-		CardGlassColor:       "rgba(255, 255, 255, 0.75)",
-		FooterGlassColor:     "rgba(255, 255, 255, 0.9)",
+		CardGlassColor:       "rgba(220, 138, 221, 0.2)",
+		FooterGlassColor:     "rgba(220, 138, 221, 0.25)",
 	}
 
 	keys := []string{

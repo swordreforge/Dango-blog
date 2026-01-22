@@ -3902,12 +3902,12 @@ input[type="range"]::-moz-range-thumb:hover {
     <div class="modal-body">
       <form id="uploadForm">
         <div class="form-group">
-          <label for="uploadTitle">文章标题</label>
+          <label for="uploadTitle">文章标题 <span style="color: #e74c3c;">*</span></label>
           <input type="text" id="uploadTitle" class="form-control" placeholder="请输入文章标题" required>
         </div>
-        
+
         <div class="form-group">
-          <label for="uploadAuthor">作者</label>
+          <label for="uploadAuthor">作者 <span style="color: #e74c3c;">*</span></label>
           <input type="text" id="uploadAuthor" class="form-control" value="管理员">
         </div>
         
@@ -3929,13 +3929,13 @@ input[type="range"]::-moz-range-thumb:hover {
         
         <div class="form-group">
           <label for="uploadCategory">分类</label>
-          <select id="uploadCategory" class="form-control">
-            <option value="frontend">前端开发</option>
-            <option value="backend">后端开发</option>
-            <option value="design">设计</option>
-            <option value="ai">人工智能</option>
-            <option value="tools">工具推荐</option>
-          </select>
+          <div style="display: flex; gap: 10px;">
+            <select id="uploadCategory" class="form-control" style="flex: 1;">
+              <option value="">请选择分类（可选）</option>
+            </select>
+            <button type="button" class="btn-secondary" id="addCategoryBtn" style="white-space: nowrap;">+ 新建</button>
+          </div>
+          <p style="font-size: 0.85em; color: #666; margin-top: 5px;">选择文章所属分类，或点击"新建"创建新分类（可选）</p>
         </div>
         
         <div class="form-group">
@@ -3950,8 +3950,9 @@ input[type="range"]::-moz-range-thumb:hover {
         </div>
         
         <div class="form-group">
-          <label for="uploadContent">文章内容</label>
+          <label for="uploadContent">文章内容 <span style="color: #e74c3c;">*</span></label>
           <textarea id="uploadContent" class="form-control" placeholder="请输入文章内容（支持Markdown格式）" rows="10"></textarea>
+          <p style="font-size: 0.85em; color: #666; margin-top: 5px;">输入文章内容或上传Markdown文件（至少提供一种）</p>
         </div>
         
         <div class="form-group">
@@ -3995,12 +3996,12 @@ input[type="range"]::-moz-range-thumb:hover {
     <div class="modal-body">
       <form id="articleForm">
         <div class="form-group">
-          <label for="articleTitle">文章标题</label>
+          <label for="articleTitle">文章标题 <span style="color: #e74c3c;">*</span></label>
           <input type="text" id="articleTitle" class="form-control" placeholder="请输入文章标题" required>
         </div>
-        
+
         <div class="form-group">
-          <label for="articleAuthor">作者</label>
+          <label for="articleAuthor">作者 <span style="color: #e74c3c;">*</span></label>
           <input type="text" id="articleAuthor" class="form-control" value="管理员">
         </div>
         
@@ -4020,7 +4021,7 @@ input[type="range"]::-moz-range-thumb:hover {
         </div>
 
         <div class="form-group">
-          <label for="articleContent">文章内容</label>
+          <label for="articleContent">文章内容 <span style="color: #e74c3c;">*</span></label>
           <textarea id="articleContent" class="form-control" placeholder="请输入文章内容（支持Markdown格式）" rows="15"></textarea>
         </div>
         
@@ -4043,12 +4044,12 @@ input[type="range"]::-moz-range-thumb:hover {
     <div class="modal-body">
       <form id="editForm">
         <div class="form-group">
-          <label for="editTitle">文章标题</label>
+          <label for="editTitle">文章标题 <span style="color: #e74c3c;">*</span></label>
           <input type="text" id="editTitle" class="form-control" placeholder="请输入文章标题" required>
         </div>
-        
+
         <div class="form-group">
-          <label for="editAuthor">作者</label>
+          <label for="editAuthor">作者 <span style="color: #e74c3c;">*</span></label>
           <input type="text" id="editAuthor" class="form-control" placeholder="请输入作者">
         </div>
 
@@ -4119,7 +4120,7 @@ input[type="range"]::-moz-range-thumb:hover {
         </div>
 
         <div class="form-group">
-          <label for="editContent">文章内容</label>
+          <label for="editContent">文章内容 <span style="color: #e74c3c;">*</span></label>
           <textarea id="editContent" class="form-control" placeholder="请输入文章内容（支持Markdown格式）" rows="15"></textarea>
         </div>
         
@@ -6297,11 +6298,24 @@ function bindActionButtons() {
                   // 解析并填充标签
                   let selectedTags = [];
                   if (result.data.tags) {
-                    try {
-                      selectedTags = JSON.parse(result.data.tags);
-                    } catch (e) {
-                      // 如果解析失败，尝试按逗号分割
-                      selectedTags = result.data.tags.split(',').map(t => t.trim()).filter(t => t);
+                    const tagsValue = result.data.tags;
+                    // 如果是数组，直接使用
+                    if (Array.isArray(tagsValue)) {
+                      selectedTags = tagsValue;
+                    } else if (typeof tagsValue === 'string') {
+                      // 如果是字符串，尝试解析为JSON数组
+                      try {
+                        const parsed = JSON.parse(tagsValue);
+                        if (Array.isArray(parsed)) {
+                          selectedTags = parsed;
+                        } else {
+                          // 解析结果不是数组，按逗号分割
+                          selectedTags = tagsValue.split(',').map(t => t.trim()).filter(t => t);
+                        }
+                      } catch (e) {
+                        // JSON解析失败，按逗号分割
+                        selectedTags = tagsValue.split(',').map(t => t.trim()).filter(t => t);
+                      }
                     }
                   }
                   await populateTagSelector(selectedTags);
@@ -6727,22 +6741,109 @@ document.querySelectorAll('.tag-option').forEach(tag => {
 });
 
 // 添加标签功能（上传文章模态框）
-document.getElementById('addUploadTagBtn').addEventListener('click', function() {
+document.getElementById('addUploadTagBtn').addEventListener('click', async function() {
   const tagInput = document.getElementById('uploadTagInput');
   const tagText = tagInput.value.trim();
 
-  if (tagText) {
-    const tagSelector = document.getElementById('uploadTagSelector');
-    const newTag = document.createElement('div');
-    newTag.className = 'tag-option selected';
-    newTag.dataset.tagName = tagText;
-    newTag.textContent = tagText;
-    newTag.addEventListener('click', function() {
-      this.classList.toggle('selected');
+  if (!tagText) {
+    showToast('请输入标签名称', 'warning');
+    return;
+  }
+
+  // 检查标签是否已存在（包括已选中的标签）
+  const tagSelector = document.getElementById('uploadTagSelector');
+  const existingTags = Array.from(tagSelector.querySelectorAll('.tag-option')).map(tag =>
+    tag.dataset.tagName ? tag.dataset.tagName.toLowerCase() : tag.textContent.trim().toLowerCase()
+  );
+
+  if (existingTags.includes(tagText.toLowerCase())) {
+    showToast('标签已存在', 'warning');
+    tagInput.value = '';
+    return;
+  }
+
+  // 生成随机颜色
+  const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#9b59b6', '#34495e'];
+  const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+  // 创建新标签
+  const newTag = document.createElement('div');
+  newTag.className = 'tag-option selected';
+  newTag.dataset.tagName = tagText;
+  newTag.dataset.isNew = 'true'; // 标记为新创建的标签
+  newTag.innerHTML = `
+    <span style="display: inline-block; width: 12px; height: 12px; background-color: ${randomColor}; border-radius: 2px; margin-right: 6px;"></span>
+    ${tagText}
+  `;
+  newTag.addEventListener('click', function() {
+    this.classList.toggle('selected');
+  });
+
+  tagSelector.appendChild(newTag);
+  tagInput.value = '';
+
+  // 提示用户标签已添加
+  showToast(`标签 "${tagText}" 已添加`, 'success');
+});
+
+// 创建新分类功能
+document.getElementById('addCategoryBtn').addEventListener('click', async function() {
+  const categoryName = prompt('请输入新分类名称：');
+
+  if (!categoryName || !categoryName.trim()) {
+    showToast('分类名称不能为空', 'warning');
+    return;
+  }
+
+  const trimmedName = categoryName.trim();
+
+  // 检查分类是否已存在
+  const categorySelect = document.getElementById('uploadCategory');
+  const existingCategories = Array.from(categorySelect.options).map(option =>
+    option.value ? option.value.toLowerCase() : ''
+  );
+
+  if (existingCategories.includes(trimmedName.toLowerCase())) {
+    showToast('分类已存在', 'warning');
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch('/api/admin/categories', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        name: trimmedName,
+        description: '',
+        icon: '',
+        sort_order: 0,
+        is_enabled: true
+      })
     });
 
-    tagSelector.appendChild(newTag);
-    tagInput.value = '';
+    const result = await response.json();
+
+    if (result.success) {
+      // 添加新分类到选择器
+      const newOption = document.createElement('option');
+      newOption.value = trimmedName;
+      newOption.textContent = trimmedName;
+      categorySelect.appendChild(newOption);
+
+      // 选中新创建的分类
+      categorySelect.value = trimmedName;
+
+      showToast(`分类 "${trimmedName}" 创建成功`, 'success');
+    } else {
+      showToast(`创建分类失败：${result.message || '未知错误'}`, 'error');
+    }
+  } catch (error) {
+    console.error('创建分类失败:', error);
+    showToast('创建分类失败，请检查网络连接', 'error');
   }
 });
 
@@ -6834,18 +6935,36 @@ function handleFiles(files) {
 // 表单提交
 document.getElementById('uploadForm').addEventListener('submit', async function(e) {
   e.preventDefault();
-  
-  const title = document.getElementById('uploadTitle').value;
+
+  // 验证必填字段
+  const title = document.getElementById('uploadTitle').value.trim();
   if (!title) {
     showToast('请输入文章标题', 'warning');
+    document.getElementById('uploadTitle').focus();
     return;
   }
-  
+
+  const author = document.getElementById('uploadAuthor').value.trim();
+  if (!author) {
+    showToast('请输入作者名称', 'warning');
+    document.getElementById('uploadAuthor').focus();
+    return;
+  }
+
+  // 分类和标签现在是可选的
+  const category = document.getElementById('uploadCategory').value || '';
+
+  // 获取选中的标签（可选）
+  const selectedTags = [];
+  document.querySelectorAll('#uploadTagSelector .tag-option.selected').forEach(option => {
+    selectedTags.push(option.dataset.tagName);
+  });
+
   const submitBtn = this.querySelector('button[type="submit"]');
   const originalText = submitBtn.textContent;
   submitBtn.textContent = '上传中...';
   submitBtn.disabled = true;
-  
+
   try {
     // 获取文件和文章内容
     const files = selectedFiles;
@@ -6868,17 +6987,16 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
       articleContent = await readFileContent(file);
     }
 
-    // 获取表单数据
-    const title = document.getElementById('uploadTitle').value;
-    const author = document.getElementById('uploadAuthor').value;
-    const category = document.getElementById('uploadCategory').value;
-    const status = document.getElementById('uploadStatus').value;
+    // 验证文章内容
+    if (!articleContent || articleContent.trim().length === 0) {
+      showToast('文章内容不能为空', 'warning');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
 
-    // 获取选中的标签
-    const selectedTags = [];
-    document.querySelectorAll('#uploadTagSelector .tag-option.selected').forEach(option => {
-      selectedTags.push(option.dataset.tagName);
-    });
+    // 获取表单数据
+    const status = document.getElementById('uploadStatus').value;
 
     // 创建文章
     const token = localStorage.getItem('auth_token');
@@ -6904,31 +7022,82 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
 
     const result = await response.json();
 
-    if (result.success) {
-      submitBtn.textContent = '创建成功!';
-      submitBtn.style.background = 'rgba(255, 183, 122, 0.8)';
-
-      setTimeout(() => {
-        closeModal('uploadModal');
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-        submitBtn.style.background = 'rgba(255, 183, 122, 0.8)';
-        this.reset();
-
-        // 清空预览和文件列表
-        uploadPreview.innerHTML = '';
-        selectedFiles = [];
-
-        // 刷新文章列表
-        fetchAdminData();
-
-        showToast('文章创建成功！', 'success');
-      }, 2000);
-    } else {
+    if (!result.success) {
       submitBtn.textContent = originalText;
       submitBtn.disabled = false;
       showToast('创建失败：' + (result.message || '未知错误'), 'error');
+      return;
     }
+
+    // 文章创建成功,现在上传附件
+    const passageId = result.data.id;
+    let uploadSuccessCount = 0;
+    let uploadFailCount = 0;
+    const uploadErrors = [];
+
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('passage_id', passageId);
+
+        const uploadResponse = await fetch('/api/attachments', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const uploadResult = await uploadResponse.json();
+        if (uploadResult.success) {
+          uploadSuccessCount++;
+          console.log(`附件 ${file.name} 上传成功`);
+        } else {
+          uploadFailCount++;
+          uploadErrors.push(`${file.name}: ${uploadResult.message || '未知错误'}`);
+          console.error(`附件 ${file.name} 上传失败:`, uploadResult);
+        }
+      } catch (error) {
+        uploadFailCount++;
+        uploadErrors.push(`${file.name}: ${error.message || '网络错误'}`);
+        console.error(`上传附件 ${file.name} 失败:`, error);
+      }
+    }
+
+    // 如果有附件上传失败，显示详细错误信息
+    if (uploadFailCount > 0) {
+      console.error('附件上传失败详情:', uploadErrors);
+    }
+
+    // 显示结果
+    submitBtn.textContent = '创建成功!';
+    submitBtn.style.background = 'rgba(255, 183, 122, 0.8)';
+
+    let message = '文章创建成功！';
+    if (uploadSuccessCount > 0) {
+      message += ` 成功上传 ${uploadSuccessCount} 个附件`;
+    }
+    if (uploadFailCount > 0) {
+      message += ` 失败 ${uploadFailCount} 个附件`;
+    }
+
+    setTimeout(() => {
+      closeModal('uploadModal');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      submitBtn.style.background = 'rgba(255, 183, 122, 0.8)';
+      this.reset();
+
+      // 清空预览和文件列表
+      uploadPreview.innerHTML = '';
+      selectedFiles = [];
+
+      // 刷新文章列表
+      fetchAdminData();
+
+      showToast(message, uploadFailCount > 0 ? 'warning' : 'success');
+    }, 2000);
   } catch (error) {
     console.error('创建文章失败:', error);
     submitBtn.textContent = originalText;

@@ -18,6 +18,231 @@ import (
 // AdminPassagesHandler 文章管理API处理器
 func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
+	case http.MethodPost:
+		// 创建新文章
+		var passage models.Passage
+		if err := json.NewDecoder(r.Body).Decode(&passage); err != nil {
+			response := map[string]interface{}{
+				"success": false,
+				"message": "Invalid request body",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// 验证必填字段
+		if passage.Title == "" || passage.Content == "" {
+			response := map[string]interface{}{
+				"success": false,
+				"message": "标题和内容不能为空",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// 验证分类是否存在（如果提供了分类）
+		if passage.Category != "" {
+			categoryRepo := db.GetCategoryRepository()
+			categories, err := categoryRepo.GetAll()
+			if err != nil {
+				response := map[string]interface{}{
+					"success": false,
+					"message": "获取分类列表失败",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+
+			categoryExists := false
+			for _, cat := range categories {
+				if cat.Name == passage.Category {
+					categoryExists = true
+					break
+				}
+			}
+
+			if !categoryExists {
+				response := map[string]interface{}{
+					"success": false,
+					"message": fmt.Sprintf("分类 '%s' 不存在", passage.Category),
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+		}
+
+		// 验证标签是否存在（如果提供了标签）
+		if passage.Tags != "" {
+			tagRepo := db.GetTagRepository()
+			tags, err := tagRepo.GetAll()
+			if err != nil {
+				response := map[string]interface{}{
+					"success": false,
+					"message": "获取标签列表失败",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+
+			// 将标签字符串分割为数组
+			tagNames := strings.Split(passage.Tags, ",")
+			validTags := make([]string, 0)
+			invalidTags := make([]string, 0)
+
+			for _, tagName := range tagNames {
+				trimmedName := strings.TrimSpace(tagName)
+				if trimmedName == "" {
+					continue
+				}
+
+				tagExists := false
+				for _, tag := range tags {
+					if tag.Name == trimmedName {
+						tagExists = true
+						break
+					}
+				}
+
+				if tagExists {
+					validTags = append(validTags, trimmedName)
+				} else {
+					invalidTags = append(invalidTags, trimmedName)
+				}
+			}
+
+			// 如果有无效标签，返回错误
+			if len(invalidTags) > 0 {
+				response := map[string]interface{}{
+					"success": false,
+					"message": fmt.Sprintf("以下标签不存在: %s", strings.Join(invalidTags, ", ")),
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+
+			// 更新标签字符串为有效标签
+			passage.Tags = strings.Join(validTags, ",")
+		}
+
+		// 设置默认值
+		now := time.Now()
+		passage.CreatedAt = now
+		passage.UpdatedAt = now
+		if passage.Status == "" {
+			passage.Status = "draft"
+		}
+		if passage.Visibility == "" {
+			passage.Visibility = "public"
+		}
+		if passage.Author == "" {
+			passage.Author = "管理员"
+		}
+		if passage.ShowTitle {
+			passage.ShowTitle = true
+		}
+
+		// 保存原始内容
+		passage.OriginalContent = passage.Content
+
+		// 转换Markdown为HTML
+		htmlContent, err := service.ConvertToHTMLWithOption([]byte(passage.OriginalContent), passage.ShowTitle)
+		if err != nil {
+			response := map[string]interface{}{
+				"success": false,
+				"message": "Markdown转换失败",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		passage.Content = htmlContent
+
+		// 创建markdown文件
+		cleanedTitle := service.SanitizeFilename(passage.Title)
+		dateDir := now.Format("2006/01/02")
+		dirPath := filepath.Join("markdown", dateDir)
+
+		// 创建目录
+		if err := os.MkdirAll(dirPath, 0755); err != nil {
+			response := map[string]interface{}{
+				"success": false,
+				"message": "创建目录失败",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// 构建文件路径
+		filePath := filepath.Join(dirPath, cleanedTitle+".md")
+		relativePath := strings.TrimPrefix(filePath, "markdown/")
+		relativePath = strings.TrimSuffix(relativePath, ".md")
+		passage.FilePath = relativePath
+
+		// 检查文件是否已存在
+		if _, err := os.Stat(filePath); err == nil {
+			// 文件已存在，添加时间戳避免冲突
+			timestamp := now.Format("20060102-150405")
+			cleanedTitle = fmt.Sprintf("%s-%s", cleanedTitle, timestamp)
+			filePath = filepath.Join(dirPath, cleanedTitle+".md")
+			relativePath = strings.TrimPrefix(filePath, "markdown/")
+			relativePath = strings.TrimSuffix(relativePath, ".md")
+			passage.FilePath = relativePath
+		}
+
+		// 写入文件
+		if err := service.UpdateMarkdownFile(filePath, passage.Title, passage.OriginalContent); err != nil {
+			response := map[string]interface{}{
+				"success": false,
+				"message": fmt.Sprintf("创建文件失败: %v", err),
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		// 保存到数据库
+		repo := db.GetPassageRepository()
+		if err := repo.Create(&passage); err != nil {
+			response := map[string]interface{}{
+				"success": false,
+				"message": "保存到数据库失败",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		response := map[string]interface{}{
+			"success": true,
+			"message": "文章创建成功",
+			"data": map[string]interface{}{
+				"id":         passage.ID,
+				"title":      passage.Title,
+				"status":     passage.Status,
+				"created_at": passage.CreatedAt.Format("2006-01-02"),
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+
 	case http.MethodGet:
 		// 检查是否请求单篇文章详情
 		idStr := r.URL.Query().Get("id")
@@ -227,6 +452,9 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			passage.PublishedAt = existingPassage.PublishedAt
 		}
 
+		// 保留原有的 FilePath（除非标题改变）
+		passage.FilePath = existingPassage.FilePath
+
 		// 如果没有提供原始内容，将HTML内容转换为Markdown（简化处理）
 		if passage.OriginalContent == "" {
 			// 这里假设前端发送的是Markdown格式的内容
@@ -349,7 +577,14 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 更新数据库
 		if err := repo.Update(&passage); err != nil {
-			http.Error(w, "Failed to update passage", http.StatusInternalServerError)
+			log.Printf("Error updating passage: %v", err)
+			response := map[string]interface{}{
+				"success": false,
+				"message": fmt.Sprintf("更新文章失败: %v", err),
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
 			return
 		}
 

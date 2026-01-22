@@ -3,8 +3,12 @@ package main
 import (
 	"embed"
 	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,12 +24,29 @@ import (
 	"myblog-gogogo/pkg/beautify"
 )
 
-//go:embed template/*.html template/admin/*.html template/status/*.html template/css template/js
+//go:embed template img music
 var templateFS embed.FS
+
+func init() {
+	// 初始化嵌入的模板文件系统
+	controller.SetTemplateFS(templateFS)
+}
 
 func main() {
 	// 初始化嵌入的模板文件系统
 	controller.SetTemplateFS(templateFS)
+	// 初始化模板
+	controller.InitTemplates()
+
+	// 释放嵌入的资源并创建必要的目录
+	beautify.Section("资源初始化")
+	beautify.Indent()
+	if err := extractEmbeddedResources(); err != nil {
+		beautify.ErrorLeaf(fmt.Sprintf("资源释放失败: %v", err))
+	} else {
+		beautify.SuccessLeaf("资源初始化成功")
+	}
+	beautify.Outdent()
 
 	// 加载配置
 	cfg := config.Load()
@@ -216,4 +237,97 @@ func main() {
 	}
 
 	beautify.Success("服务器已优雅关闭")
+}
+
+// extractEmbeddedResources 释放嵌入的资源并创建必要的目录
+func extractEmbeddedResources() error {
+	// 需要创建的目录列表
+	dirs := []string{
+		"attachments",
+		"data",
+		"markdown",
+	}
+
+	// 创建必要的目录
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("创建目录 %s 失败: %w", dir, err)
+		}
+	}
+
+	// 释放 img 目录中的文件
+	if err := extractDir(templateFS, "img", "img"); err != nil {
+		return fmt.Errorf("释放 img 目录失败: %w", err)
+	}
+
+	// 释放 music 目录中的文件
+	if err := extractDir(templateFS, "music", "music"); err != nil {
+		return fmt.Errorf("释放 music 目录失败: %w", err)
+	}
+
+	return nil
+}
+
+// extractDir 从嵌入的文件系统中提取目录
+func extractDir(embedFS embed.FS, srcDir, dstDir string) error {
+	// 检查目标目录是否已存在
+	if _, err := os.Stat(dstDir); err == nil {
+		// 目录已存在,跳过提取
+		return nil
+	}
+
+	// 创建目标目录
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return err
+	}
+
+	// 读取源目录内容
+	entries, err := fs.ReadDir(embedFS, srcDir)
+	if err != nil {
+		return err
+	}
+
+	// 提取所有文件
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		dstPath := filepath.Join(dstDir, entry.Name())
+
+		if entry.IsDir() {
+			// 递归提取子目录
+			if err := extractDir(embedFS, srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			// 提取文件
+			if err := extractFile(embedFS, srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// extractFile 从嵌入的文件系统中提取单个文件
+func extractFile(embedFS embed.FS, srcPath, dstPath string) error {
+	// 读取源文件
+	srcFile, err := embedFS.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	// 创建目标文件
+	dstFile, err := os.Create(dstPath)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	// 复制文件内容
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		return err
+	}
+
+	return nil
 }

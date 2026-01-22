@@ -143,6 +143,11 @@ func createTables() error {
 	alterPublishedAtTable := `
 	ALTER TABLE passages ADD COLUMN published_at DATETIME;
 	`
+
+	// 添加show_title字段（如果表已存在）
+	alterShowTitleTable := `
+	ALTER TABLE passages ADD COLUMN show_title INTEGER DEFAULT 1;
+	`
 	
 	// 创建用户表
 	userTable := `
@@ -361,6 +366,9 @@ func createTables() error {
 
 	// 尝试添加published_at字段（如果已存在会忽略错误）
 	_, _ = dbInstance.Exec(alterPublishedAtTable)
+
+	// 尝试添加show_title字段（如果已存在会忽略错误）
+	_, _ = dbInstance.Exec(alterShowTitleTable)
 
 	// 创建 passages 表索引（在添加列之后）
 	if _, err := dbInstance.Exec(passageIndexes); err != nil {
@@ -608,7 +616,7 @@ func seedDefaultSettings() error {
 		},
 		{
 			Key:         "navbar_glass_color",
-			Value:       "rgba(255, 255, 255, 0.85)",
+			Value:       "rgba(220, 138, 221, 0.15)",
 			Type:        "string",
 			Description: "导航栏毛玻璃颜色",
 			Category:    "appearance",
@@ -622,14 +630,14 @@ func seedDefaultSettings() error {
 		},
 		{
 			Key:         "card_glass_color",
-			Value:       "rgba(255, 255, 255, 0.75)",
+			Value:       "rgba(220, 138, 221, 0.2)",
 			Type:        "string",
 			Description: "页面卡片毛玻璃颜色",
 			Category:    "appearance",
 		},
 		{
 			Key:         "footer_glass_color",
-			Value:       "rgba(255, 255, 255, 0.9)",
+			Value:       "rgba(220, 138, 221, 0.25)",
 			Type:        "string",
 			Description: "底栏毛玻璃颜色",
 			Category:    "appearance",

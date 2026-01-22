@@ -18,9 +18,9 @@ func GetAppearanceSettingsSafe() *settings.AppearanceSettings {
 			BlurAmount:           "20px",
 			SaturateAmount:       "180%",
 			DarkModeEnabled:      false,
-			NavbarGlassColor:     "rgba(255, 255, 255, 0.85)",
-			CardGlassColor:       "rgba(255, 255, 255, 0.75)",
-			FooterGlassColor:     "rgba(255, 255, 255, 0.9)",
+			NavbarGlassColor:     "rgba(220, 138, 221, 0.15)",
+			CardGlassColor:       "rgba(220, 138, 221, 0.2)",
+			FooterGlassColor:     "rgba(220, 138, 221, 0.25)",
 		}
 	}
 	return appearanceSettings

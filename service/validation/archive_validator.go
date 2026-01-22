@@ -123,3 +123,26 @@ func Validate7z(content []byte) error {
 
 	return nil
 }
+
+// ValidateRAR 验证RAR文件
+func ValidateRAR(content []byte) error {
+	// 检查文件大小限制（500MB）
+	if err := CheckFileSize(content, 500*1024*1024); err != nil {
+		return err
+	}
+
+	// RAR文件头检查
+	if len(content) < 7 {
+		return errors.New("无效的RAR文件")
+	}
+
+	// RAR文件以 "Rar!" 开头 (0x52 0x61 0x72 0x21 0x1A 0x07)
+	if string(content[0:4]) != "Rar!" {
+		return errors.New("无效的RAR文件")
+	}
+
+	// 注意：由于RAR是专有格式，这里只做基本验证
+	// 实际使用时可以集成第三方库如 github.com/nwaples/rardecode
+
+	return nil
+}

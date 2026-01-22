@@ -18,6 +18,7 @@ type PassageRepository interface {
 	GetByCategory(category string, limit, offset int) ([]models.Passage, error)
 	GetAllCategories() ([]string, error)
 	Count() (int, error)
+	CountByStatus(status string) (int, error)
 }
 
 // SQLitePassageRepository SQLite文章仓库实现
@@ -30,8 +31,8 @@ func NewSQLitePassageRepository(db *sql.DB) *SQLitePassageRepository {
 }
 
 func (r *SQLitePassageRepository) Create(passage *models.Passage) error {
-	query := `INSERT INTO passages (title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, created_at, updated_at)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO passages (title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	now := time.Now()
 
@@ -53,9 +54,15 @@ func (r *SQLitePassageRepository) Create(passage *models.Passage) error {
 		isScheduled = 1
 	}
 
+	// 处理 show_title 布尔值
+	showTitle := 1
+	if passage.ShowTitle {
+		showTitle = 1
+	}
+
 	result, err := r.db.Exec(query, passage.Title, passage.Content, passage.OriginalContent, passage.Summary,
 		passage.Author, passage.Tags, passage.Category, passage.Status, passage.FilePath, passage.Visibility,
-		isScheduled, passage.PublishedAt, passage.CreatedAt, now)
+		isScheduled, passage.PublishedAt, showTitle, passage.CreatedAt, now)
 	if err != nil {
 		return err
 	}
@@ -70,15 +77,16 @@ func (r *SQLitePassageRepository) Create(passage *models.Passage) error {
 }
 
 func (r *SQLitePassageRepository) GetByID(id int) (*models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, created_at, updated_at
+	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages WHERE id = ?`
 
 	passage := &models.Passage{}
 	var isScheduled int
+	var showTitle int
 	err := r.db.QueryRow(query, id).Scan(
 		&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
 		&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
-		&passage.Visibility, &isScheduled, &passage.PublishedAt,
+		&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 		&passage.CreatedAt, &passage.UpdatedAt,
 	)
 
@@ -91,12 +99,14 @@ func (r *SQLitePassageRepository) GetByID(id int) (*models.Passage, error) {
 
 	// 转换 is_scheduled 为布尔值
 	passage.IsScheduled = isScheduled == 1
+	// 转换 show_title 为布尔值
+	passage.ShowTitle = showTitle == 1
 
 	return passage, nil
 }
 
 func (r *SQLitePassageRepository) GetAll(limit, offset int) ([]models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, created_at, updated_at
+	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages ORDER BY created_at DESC LIMIT ? OFFSET ?`
 
 	rows, err := r.db.Query(query, limit, offset)
@@ -109,10 +119,11 @@ func (r *SQLitePassageRepository) GetAll(limit, offset int) ([]models.Passage, e
 	for rows.Next() {
 		var passage models.Passage
 		var isScheduled int
+		var showTitle int
 		err := rows.Scan(
 			&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
 			&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
-			&passage.Visibility, &isScheduled, &passage.PublishedAt,
+			&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 			&passage.CreatedAt, &passage.UpdatedAt,
 		)
 		if err != nil {
@@ -120,6 +131,8 @@ func (r *SQLitePassageRepository) GetAll(limit, offset int) ([]models.Passage, e
 		}
 		// 转换 is_scheduled 为布尔值
 		passage.IsScheduled = isScheduled == 1
+		// 转换 show_title 为布尔值
+		passage.ShowTitle = showTitle == 1
 		passages = append(passages, passage)
 	}
 
@@ -128,7 +141,7 @@ func (r *SQLitePassageRepository) GetAll(limit, offset int) ([]models.Passage, e
 
 func (r *SQLitePassageRepository) Update(passage *models.Passage) error {
 	query := `UPDATE passages SET title = ?, content = ?, original_content = ?, summary = ?, author = ?, tags = ?, category = ?,
-	          status = ?, file_path = ?, visibility = ?, is_scheduled = ?, published_at = ?, updated_at = ? WHERE id = ?`
+	          status = ?, file_path = ?, visibility = ?, is_scheduled = ?, published_at = ?, show_title = ?, updated_at = ? WHERE id = ?`
 
 	passage.UpdatedAt = time.Now()
 
@@ -138,9 +151,15 @@ func (r *SQLitePassageRepository) Update(passage *models.Passage) error {
 		isScheduled = 1
 	}
 
+	// 处理 show_title 布尔值
+	showTitle := 0
+	if passage.ShowTitle {
+		showTitle = 1
+	}
+
 	_, err := r.db.Exec(query, passage.Title, passage.Content, passage.OriginalContent, passage.Summary,
 		passage.Author, passage.Tags, passage.Category, passage.Status, passage.FilePath, passage.Visibility,
-		isScheduled, passage.PublishedAt, passage.UpdatedAt, passage.ID)
+		isScheduled, passage.PublishedAt, showTitle, passage.UpdatedAt, passage.ID)
 
 	return err
 }
@@ -152,7 +171,7 @@ func (r *SQLitePassageRepository) Delete(id int) error {
 }
 
 func (r *SQLitePassageRepository) GetByStatus(status string, limit, offset int) ([]models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, created_at, updated_at
+	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`
 
 	rows, err := r.db.Query(query, status, limit, offset)
@@ -165,10 +184,11 @@ func (r *SQLitePassageRepository) GetByStatus(status string, limit, offset int) 
 	for rows.Next() {
 		var passage models.Passage
 		var isScheduled int
+		var showTitle int
 		err := rows.Scan(
 			&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
 			&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
-			&passage.Visibility, &isScheduled, &passage.PublishedAt,
+			&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 			&passage.CreatedAt, &passage.UpdatedAt,
 		)
 		if err != nil {
@@ -176,6 +196,8 @@ func (r *SQLitePassageRepository) GetByStatus(status string, limit, offset int) 
 		}
 		// 转换 is_scheduled 为布尔值
 		passage.IsScheduled = isScheduled == 1
+		// 转换 show_title 为布尔值
+		passage.ShowTitle = showTitle == 1
 		passages = append(passages, passage)
 	}
 
@@ -188,8 +210,14 @@ func (r *SQLitePassageRepository) Count() (int, error) {
 	return count, err
 }
 
+func (r *SQLitePassageRepository) CountByStatus(status string) (int, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM passages WHERE status = ?", status).Scan(&count)
+	return count, err
+}
+
 func (r *SQLitePassageRepository) GetByCategory(category string, limit, offset int) ([]models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, created_at, updated_at
+	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages WHERE category = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`
 
 	rows, err := r.db.Query(query, category, limit, offset)
@@ -202,10 +230,11 @@ func (r *SQLitePassageRepository) GetByCategory(category string, limit, offset i
 	for rows.Next() {
 		var passage models.Passage
 		var isScheduled int
+		var showTitle int
 		err := rows.Scan(
 			&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
 			&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
-			&passage.Visibility, &isScheduled, &passage.PublishedAt,
+			&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 			&passage.CreatedAt, &passage.UpdatedAt,
 		)
 		if err != nil {
@@ -213,6 +242,8 @@ func (r *SQLitePassageRepository) GetByCategory(category string, limit, offset i
 		}
 		// 转换 is_scheduled 为布尔值
 		passage.IsScheduled = isScheduled == 1
+		// 转换 show_title 为布尔值
+		passage.ShowTitle = showTitle == 1
 		passages = append(passages, passage)
 	}
 

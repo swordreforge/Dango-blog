@@ -71,3 +71,27 @@ func ValidateDOCX(content []byte) error {
 
 	return nil
 }
+
+// ValidateDocument 验证文本和Markdown文件
+func ValidateDocument(content []byte) error {
+	// 检查文件大小限制（10MB）
+	if err := CheckFileSize(content, 10*1024*1024); err != nil {
+		return err
+	}
+
+	// 检查是否包含二进制内容（文本文件应该主要是可打印字符）
+	binaryCount := 0
+	for _, b := range content {
+		// 检查是否为不可打印的控制字符（除了常见的换行、制表符等）
+		if b < 32 && b != 9 && b != 10 && b != 13 {
+			binaryCount++
+		}
+	}
+
+	// 如果二进制字符超过5%，则认为是二进制文件
+	if len(content) > 0 && float64(binaryCount)/float64(len(content)) > 0.05 {
+		return errors.New("文件包含过多的二进制内容，不是有效的文本文件")
+	}
+
+	return nil
+}
