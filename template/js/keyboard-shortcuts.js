@@ -680,17 +680,40 @@ class AdminKeyboardManager {
         
       case 'y':
         // y = yes/确认：点击主要操作按钮
-        const confirmBtn = this.activeModal.querySelector('button[type="submit"], .btn-primary');
+        // 优先查找 ID 为 confirmAction 的按钮（删除确认模态框）
+        let confirmBtn = this.activeModal.querySelector('#confirmAction');
+        
+        // 如果没有找到，查找 type="submit" 的按钮
+        if (!confirmBtn) {
+          confirmBtn = this.activeModal.querySelector('button[type="submit"]');
+        }
+        
+        // 如果还没有找到，查找 .btn-primary 类的按钮
+        if (!confirmBtn) {
+          confirmBtn = this.activeModal.querySelector('.btn-primary');
+        }
+        
         if (confirmBtn) {
-          confirmBtn.click();
-          event.preventDefault();
-          return true;
+          // 检查按钮是否可见和可点击
+          const style = window.getComputedStyle(confirmBtn);
+          if (style.display !== 'none' && style.visibility !== 'hidden' && !confirmBtn.disabled) {
+            confirmBtn.click();
+            event.preventDefault();
+            return true;
+          }
         }
         break;
         
       case 'c':
         // c = cancel/取消：关闭模态框
-        this.closeCurrentModal();
+        // 优先查找取消按钮并点击
+        const cancelBtn = this.activeModal.querySelector('.btn-secondary, button[data-modal]');
+        if (cancelBtn) {
+          cancelBtn.click();
+        } else {
+          // 如果没有取消按钮，直接关闭模态框
+          this.closeCurrentModal();
+        }
         event.preventDefault();
         return true;
         
@@ -1602,6 +1625,29 @@ class AdminKeyboardManager {
   observeModals() {
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
+        // 监听 class 属性变化
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          const target = mutation.target;
+          
+          // 检查是否是模态框
+          if (target.classList && target.classList.contains('modal')) {
+            if (target.classList.contains('active') && !target.classList.contains('closing')) {
+              // 模态框打开
+              this.activeModal = target;
+              // 设置焦点陷阱
+              this.setupFocusTrap(target);
+              // 自动聚焦到第一个输入框
+              this.focusFirstInput(target);
+            } else if (!target.classList.contains('active')) {
+              // 模态框关闭
+              if (this.activeModal === target) {
+                this.activeModal = null;
+              }
+            }
+          }
+        }
+        
+        // 监听节点添加/移除（用于动态创建的模态框）
         mutation.addedNodes.forEach((node) => {
           if (node.classList && node.classList.contains('modal') && node.classList.contains('active')) {
             this.activeModal = node;
@@ -1614,7 +1660,9 @@ class AdminKeyboardManager {
         
         mutation.removedNodes.forEach((node) => {
           if (node.classList && node.classList.contains('modal')) {
-            this.activeModal = null;
+            if (this.activeModal === node) {
+              this.activeModal = null;
+            }
           }
         });
       });
@@ -1622,7 +1670,9 @@ class AdminKeyboardManager {
     
     observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class']
     });
   }
   
