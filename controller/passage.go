@@ -384,3 +384,14 @@ func parseTags(tagsStr string) []string {
 	
 	return tags
 }
+
+// filterPublishedPassages 过滤出已发布的文章
+func filterPublishedPassages(passages []models.Passage) []models.Passage {
+	var published []models.Passage
+	for _, p := range passages {
+		if p.Status == "published" {
+			published = append(published, p)
+		}
+	}
+	return published
+}

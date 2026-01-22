@@ -43,7 +43,7 @@ func AdminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 获取外观设置
-	appearanceSettings := service.GetAppearanceSettingsMap()
+	appearanceSettings := service.GetAppearanceSettingsSafe()
 
 	// 获取模板设置
 	templateSettings, err := settings.GetTemplate()

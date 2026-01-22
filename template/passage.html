@@ -420,6 +420,30 @@ nav a.current {
   margin-left: 8px;
 }
 
+/* 未发布文章样式 */
+.file-tree .file-item.file-unpublished {
+  opacity: 0.7;
+}
+
+.file-tree .file-item.file-unpublished .file-name {
+  color: #ff9800 !important;
+  font-style: italic;
+}
+
+.file-tree .file-item.file-unpublished .file-icon {
+  color: #ff9800;
+}
+
+.file-tree .file-item .file-status {
+  font-size: 0.75em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 8px;
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+  font-weight: 500;
+}
+
 /* 右侧内容区域 */
 .content-area {
   flex: 1;
@@ -2427,7 +2451,10 @@ function organizeArticlesByFolder(articles) {
       tags: article.tags || [],
       content: content,
       show_title: article.show_title !== false,
-      markdownPath: markdownPath
+      markdownPath: markdownPath,
+      status: article.status || 'draft',
+      isScheduled: article.is_scheduled || false,
+      publishedAt: article.published_at || null
     });
   });
   
@@ -2984,15 +3011,23 @@ function createFolderElement(folder) {
     <div class="folder-content">
       ${folder.subfolders ? folder.subfolders.map(subfolder => createFolderElement(subfolder).outerHTML).join('') : ''}
       ${folder.files ? folder.files.map(file => `
-        <div class="file-item" data-file-id="${file.id}">
+        <div class="file-item ${file.status !== 'published' ? 'file-unpublished' : ''}" data-file-id="${file.id}" data-status="${file.status}" data-scheduled="${file.isScheduled}" data-published-at="${file.publishedAt || ''}">
           <span class="file-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-              <polyline points="13 2 13 9 20 9"></polyline>
-            </svg>
+            ${file.status !== 'published' ? `
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            ` : `
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                <polyline points="13 2 13 9 20 9"></polyline>
+              </svg>
+            `}
           </span>
           <span class="file-name">${file.title}</span>
           <span class="file-date">${file.date}</span>
+          ${file.status !== 'published' ? `<span class="file-status">${file.status === 'draft' ? '草稿' : file.status === 'pending' ? '待审核' : '定时发布'}</span>` : ''}
         </div>
       `).join('') : ''}
     </div>
@@ -3170,13 +3205,48 @@ function renderArticle(articleData) {
       el.remove();
     }
   });
-  
+
   // 克隆文章模板
   const articleTemplate = document.getElementById('articleTemplate');
   const articleEl = articleTemplate.cloneNode(true);
   articleEl.id = `article-${articleData.id}`;
   articleEl.classList.add('active');
-  
+
+  // 检查文章状态
+  const isUnpublished = articleData.status !== 'published';
+  const unpublishedNotice = document.getElementById('unpublishedNotice');
+
+  if (isUnpublished) {
+    // 显示未发布提示
+    unpublishedNotice.style.display = 'block';
+    const messageEl = document.getElementById('unpublishedMessage');
+    const scheduledMessage = document.getElementById('scheduledMessage');
+    const scheduledTime = document.getElementById('scheduledTime');
+
+    if (articleData.status === 'draft') {
+      messageEl.textContent = '此文章正在编辑中，暂时无法访问。';
+      scheduledMessage.style.display = 'none';
+    } else if (articleData.status === 'pending') {
+      messageEl.textContent = '此文章正在等待审核，暂时无法访问。';
+      scheduledMessage.style.display = 'none';
+    } else if (articleData.isScheduled && articleData.publishedAt) {
+      messageEl.textContent = '此文章已安排定时发布，暂时无法访问。';
+      scheduledMessage.style.display = 'block';
+      scheduledTime.textContent = articleData.publishedAt;
+    } else {
+      messageEl.textContent = '此文章尚未发布，暂时无法访问。';
+      scheduledMessage.style.display = 'none';
+    }
+
+    // 隐藏目录
+    tocContainer.classList.remove('active');
+    fileTree.style.display = 'block';
+    sidebarTitle.textContent = '文章索引';
+  } else {
+    // 隐藏未发布提示
+    unpublishedNotice.style.display = 'none';
+  }
+
   // 填充文章数据
   articleEl.querySelector('.article-title').textContent = articleData.title;
   articleEl.querySelector('.article-date').textContent = articleData.date;
@@ -3351,24 +3421,41 @@ function toggleReadingMode() {
 // 更新阅读模式UI
 function updateReadingModeUI() {
   const isTimestamp = appState.readingMode === 'timestamp';
-  
+
   // 更新按钮文本
   readingModeText.textContent = isTimestamp ? '时间戳' : '本文索引';
-  
+
   // 更新侧边栏标题
   sidebarTitle.textContent = isTimestamp ? '文章索引' : '本文目录';
-  
+
+  // 检查当前文章是否未发布
+  const currentArticleData = appState.activeArticleId ? findArticleById(appState.activeArticleId) : null;
+  const isUnpublished = currentArticleData && currentArticleData.status !== 'published';
+
   // 切换文件树和目录的显示
   if (isTimestamp) {
     fileTree.style.display = 'block';
     tocContainer.classList.remove('active');
     fileTreeControls.style.display = 'flex';
   } else {
+    // 如果是未发布文章,显示提示而不是目录
+    if (isUnpublished) {
+      tocContainer.innerHTML = `
+        <div class="toc-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <p>此文章尚未发布,暂无目录</p>
+        </div>
+      `;
+    } else {
+      // 生成目录
+      generateTableOfContents();
+    }
     fileTree.style.display = 'none';
     tocContainer.classList.add('active');
     fileTreeControls.style.display = 'none';
-    // 生成目录
-    generateTableOfContents();
   }
 }
 
