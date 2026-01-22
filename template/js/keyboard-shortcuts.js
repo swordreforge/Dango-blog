@@ -662,6 +662,11 @@ class AdminKeyboardManager {
       }
     }
     
+    // 表格行导航（在所有标签页都可用）
+    if (this.handleRowNavigation(key, event)) {
+      return true;
+    }
+    
     // 标签页内导航
     switch(key) {
       case 'ArrowRight':
@@ -870,6 +875,162 @@ class AdminKeyboardManager {
     return false;
   }
 
+  handleRowNavigation(key, event) {
+    // 获取当前标签页的表格
+    const currentTabPane = document.querySelector(`.tab-pane[data-tab="${this.currentTab}"], .tab-pane.active`);
+    if (!currentTabPane) return false;
+    
+    const table = currentTabPane.querySelector('.data-table');
+    if (!table) return false;
+    
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return false;
+    
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    if (rows.length === 0) return false;
+    
+    // 获取当前选中的行
+    let currentRow = this.getSelectedRow();
+    let currentIndex = currentRow ? rows.indexOf(currentRow) : -1;
+    
+    switch(key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        if (currentIndex <= 0) {
+          // 如果已经在第一行，跳到最后一行
+          this.selectRow(rows[rows.length - 1]);
+        } else {
+          this.selectRow(rows[currentIndex - 1]);
+        }
+        return true;
+        
+      case 'ArrowDown':
+        event.preventDefault();
+        if (currentIndex < 0 || currentIndex >= rows.length - 1) {
+          // 如果没有选中行或在最后一行，跳到第一行
+          this.selectRow(rows[0]);
+        } else {
+          this.selectRow(rows[currentIndex + 1]);
+        }
+        return true;
+        
+      case 'Home':
+        event.preventDefault();
+        this.selectRow(rows[0]);
+        return true;
+        
+      case 'End':
+        event.preventDefault();
+        this.selectRow(rows[rows.length - 1]);
+        return true;
+        
+      case 'PageUp':
+        event.preventDefault();
+        const pageUpIndex = Math.max(0, currentIndex - 10);
+        this.selectRow(rows[pageUpIndex]);
+        return true;
+        
+      case 'PageDown':
+        event.preventDefault();
+        const pageDownIndex = Math.min(rows.length - 1, currentIndex + 10);
+        this.selectRow(rows[pageDownIndex]);
+        return true;
+        
+      case 'Enter':
+        event.preventDefault();
+        if (currentRow) {
+          this.activateSelectedRow();
+        }
+        return true;
+        
+      case ' ':
+        event.preventDefault();
+        if (currentRow) {
+          this.toggleRowSelection(currentRow);
+        }
+        return true;
+    }
+    
+    return false;
+  }
+  
+  // ========== 行选择相关方法 ==========
+  
+  selectRow(row) {
+    // 移除所有行的选中状态
+    const allRows = document.querySelectorAll('.data-table tbody tr');
+    allRows.forEach(r => r.classList.remove('selected'));
+    
+    // 添加选中状态到目标行
+    row.classList.add('selected');
+    
+    // 确保行在视口中可见
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    // 更新选中行集合
+    this.selectedRows.clear();
+    const rowId = row.dataset.id || row.querySelector('td:first-child')?.textContent;
+    if (rowId) {
+      this.selectedRows.add(rowId);
+    }
+  }
+  
+  toggleRowSelection(row) {
+    // 切换行的选中状态
+    if (row.classList.contains('selected')) {
+      row.classList.remove('selected');
+      const rowId = row.dataset.id || row.querySelector('td:first-child')?.textContent;
+      if (rowId) {
+        this.selectedRows.delete(rowId);
+      }
+    } else {
+      row.classList.add('selected');
+      const rowId = row.dataset.id || row.querySelector('td:first-child')?.textContent;
+      if (rowId) {
+        this.selectedRows.add(rowId);
+      }
+    }
+  }
+  
+  activateSelectedRow() {
+    const selectedRow = this.getSelectedRow();
+    if (!selectedRow) return;
+    
+    // 根据当前标签页执行不同的操作
+    switch(this.currentTab) {
+      case 'articles':
+        // 文章管理：默认执行查看操作
+        this.viewSelectedArticle();
+        break;
+      case 'filemanager':
+        // 文件管理：默认执行打开操作
+        this.openSelectedFile();
+        break;
+      case 'attachments':
+        // 附件管理：默认执行查看操作
+        this.viewSelectedAttachment();
+        break;
+      default:
+        // 其他标签页：尝试执行编辑操作
+        const editBtn = selectedRow.querySelector('.btn-edit');
+        if (editBtn) {
+          editBtn.click();
+        } else {
+          // 如果没有编辑按钮，尝试查看按钮
+          const viewBtn = selectedRow.querySelector('.btn-view');
+          if (viewBtn) {
+            viewBtn.click();
+          }
+        }
+    }
+  }
+  
+  clearRowSelection() {
+    const allRows = document.querySelectorAll('.data-table tbody tr');
+    allRows.forEach(r => r.classList.remove('selected'));
+    this.selectedRows.clear();
+  }
+
   handleFocusModeShortcuts(key, event) {
     // 通用聚焦模式快捷键
     switch(key) {
@@ -898,6 +1059,20 @@ class AdminKeyboardManager {
       window.keyboardShortcuts.disable();
     }
     
+    // 自动选择第一行（如果有的话）
+    setTimeout(() => {
+      const currentTabPane = document.querySelector(`.tab-pane[data-tab="${this.currentTab}"], .tab-pane.active`);
+      if (currentTabPane) {
+        const tbody = currentTabPane.querySelector('.data-table tbody');
+        if (tbody) {
+          const firstRow = tbody.querySelector('tr');
+          if (firstRow) {
+            this.selectRow(firstRow);
+          }
+        }
+      }
+    }, 100);
+    
     this.showToast('已进入管理员聚焦模式', 'success');
     console.log('[管理员快捷键] 进入聚焦模式');
   }
@@ -907,6 +1082,9 @@ class AdminKeyboardManager {
     
     this.isFocusMode = false;
     document.body.classList.remove('admin-focus-mode');
+    
+    // 清除行选择
+    this.clearRowSelection();
     
     // 启用普通快捷键
     if (window.keyboardShortcuts) {
@@ -924,6 +1102,8 @@ class AdminKeyboardManager {
     if (tabButton) {
       tabButton.click();
       this.currentTab = tabId;
+      // 切换标签页时清除之前选中的行
+      this.clearRowSelection();
       console.log(`[管理员快捷键] 切换到标签页: ${tabId}`);
     }
   }
@@ -1450,6 +1630,18 @@ class AdminKeyboardManager {
           <li><kbd>n</kbd> - 新建项目</li>
           <li><kbd>u</kbd> - 上传</li>
           <li><kbd>f</kbd> - 搜索/筛选</li>
+        </ul>
+        
+        <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">表格行导航</h4>
+        <ul style="color: rgba(255,255,255,0.7); line-height: 1.8;">
+          <li><kbd>↑</kbd> - 选择上一行</li>
+          <li><kbd>↓</kbd> - 选择下一行</li>
+          <li><kbd>Home</kbd> - 跳转到第一行</li>
+          <li><kbd>End</kbd> - 跳转到最后一行</li>
+          <li><kbd>PageUp</kbd> - 向上翻页（10行）</li>
+          <li><kbd>PageDown</kbd> - 向下翻页（10行）</li>
+          <li><kbd>Enter</kbd> - 激活选中行（执行默认操作）</li>
+          <li><kbd>Space</kbd> - 切换选中状态</li>
         </ul>
         
         <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">文章管理</h4>

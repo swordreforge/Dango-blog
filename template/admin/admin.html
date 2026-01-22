@@ -2737,10 +2737,23 @@ body.admin-focus-mode .tab-btn:hover {
 body.admin-focus-mode .data-table tr.selected {
   background: rgba(255, 183, 122, 0.15);
   border-left: 4px solid rgba(255, 183, 122, 0.8);
+  transition: all 0.2s ease;
+}
+
+body.admin-focus-mode .data-table tr.selected td {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 500;
 }
 
 body.admin-focus-mode .data-table tr:hover {
   background: rgba(255, 183, 122, 0.2);
+}
+
+/* 非聚焦模式下选中行样式 */
+.data-table tr.selected {
+  background: rgba(255, 183, 122, 0.1);
+  border-left: 3px solid rgba(255, 183, 122, 0.6);
+  transition: all 0.2s ease;
 }
 
 /* 快捷键提示标签 */
