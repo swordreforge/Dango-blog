@@ -3940,19 +3940,12 @@ input[type="range"]::-moz-range-thumb:hover {
         
         <div class="form-group">
           <label>标签</label>
-          <div class="tag-selector">
-            <div class="tag-option selected">前端开发</div>
-            <div class="tag-option">JavaScript</div>
-            <div class="tag-option">CSS</div>
-            <div class="tag-option">设计</div>
-            <div class="tag-option">响应式设计</div>
-            <div class="tag-option">用户体验</div>
-            <div class="tag-option">TypeScript</div>
-            <div class="tag-option">人工智能</div>
+          <div class="tag-selector" id="uploadTagSelector">
+            <!-- 标签将通过JavaScript动态加载 -->
           </div>
           <div class="tag-input-container">
-            <input type="text" class="form-control tag-input" placeholder="添加自定义标签">
-            <button type="button" class="btn-secondary" id="addTagBtn">添加</button>
+            <input type="text" class="form-control tag-input" id="uploadTagInput" placeholder="添加自定义标签">
+            <button type="button" class="btn-secondary" id="addUploadTagBtn">添加</button>
           </div>
         </div>
         
@@ -5001,6 +4994,44 @@ function updateSelectedTagsForNewArticle() {
   if (tagsInput) {
     tagsInput.value = JSON.stringify(selectedTags);
   }
+}
+
+// 填充上传文章模态框的标签选择器
+async function populateTagSelectorForUpload() {
+  const selector = document.getElementById('uploadTagSelector');
+  if (!selector) return;
+
+  // 获取标签列表
+  const tags = await fetchTags();
+
+  // 清空现有选项
+  selector.innerHTML = '';
+
+  if (tags.length === 0) {
+    selector.innerHTML = '<div style="color: #999; font-size: 0.9em;">暂无标签</div>';
+    return;
+  }
+
+  // 添加标签选项
+  tags.forEach(tag => {
+    if (!tag.is_enabled) return; // 只显示启用的标签
+
+    const tagOption = document.createElement('div');
+    tagOption.className = 'tag-option';
+    tagOption.dataset.tagId = tag.id;
+    tagOption.dataset.tagName = tag.name;
+    tagOption.innerHTML = `
+      <span style="display: inline-block; width: 12px; height: 12px; background-color: ${tag.color}; border-radius: 2px; margin-right: 6px;"></span>
+      ${tag.name}
+    `;
+
+    // 点击切换选中状态
+    tagOption.addEventListener('click', function() {
+      this.classList.toggle('selected');
+    });
+
+    selector.appendChild(tagOption);
+  });
 }
 
 // 从后端API获取数据
@@ -6614,7 +6645,9 @@ document.querySelectorAll('[data-modal]').forEach(element => {
 });
 
 // 打开上传文章模态框
-document.getElementById('uploadArticleBtn').addEventListener('click', () => {
+document.getElementById('uploadArticleBtn').addEventListener('click', async () => {
+  // 加载标签选择器
+  await populateTagSelectorForUpload();
   openModal('uploadModal');
 });
 
@@ -6637,20 +6670,21 @@ document.querySelectorAll('.tag-option').forEach(tag => {
   });
 });
 
-// 添加标签功能
-document.getElementById('addTagBtn').addEventListener('click', function() {
-  const tagInput = document.querySelector('.tag-input');
+// 添加标签功能（上传文章模态框）
+document.getElementById('addUploadTagBtn').addEventListener('click', function() {
+  const tagInput = document.getElementById('uploadTagInput');
   const tagText = tagInput.value.trim();
-  
+
   if (tagText) {
-    const tagSelector = document.querySelector('.tag-selector');
+    const tagSelector = document.getElementById('uploadTagSelector');
     const newTag = document.createElement('div');
     newTag.className = 'tag-option selected';
+    newTag.dataset.tagName = tagText;
     newTag.textContent = tagText;
     newTag.addEventListener('click', function() {
       this.classList.toggle('selected');
     });
-    
+
     tagSelector.appendChild(newTag);
     tagInput.value = '';
   }
