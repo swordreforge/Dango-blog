@@ -1,17 +1,28 @@
 package router
 
 import (
+	"io/fs"
 	"net/http"
 	"path/filepath"
 
+	"myblog-gogogo/controller"
 	"myblog-gogogo/static"
 )
 
 // SetupStaticRoutes 配置静态文件路由
 func SetupStaticRoutes(mux *http.ServeMux, baseDir string) {
-	// 静态文件服务（禁止目录列表）
-	fs := static.FileServer(http.Dir(filepath.Join(baseDir, "template")))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	// 尝试从嵌入的文件系统加载静态资源
+	if templateFS := controller.GetTemplateFS(); templateFS != nil {
+		// 使用嵌入的文件系统
+		embedFS, err := fs.Sub(templateFS, "template")
+		if err == nil {
+			mux.Handle("/static/", http.StripPrefix("/static/", static.FileServer(http.FS(embedFS))))
+		}
+	} else {
+		// 回退到本地文件系统
+		fs := static.FileServer(http.Dir(filepath.Join(baseDir, "template")))
+		mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	}
 
 	// CSS文件服务（禁止目录列表）
 	cssFs := static.FileServer(http.Dir(filepath.Join(baseDir, "template", "css")))

@@ -32,8 +32,8 @@ db/data/*.db.backup*
 db/data/*.db.bak
 
 # GeoIP 数据库
-data/GeoLite2-City.mmdb
-data/GeoLite2-City.mmdb.*
+# data/GeoLite2-City.mmdb
+# data/GeoLite2-City.mmdb.*
 
 # 音乐文件
 music/*.mp3

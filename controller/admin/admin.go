@@ -3,16 +3,40 @@ package admin
 import (
 	"html/template"
 	"net/http"
+	"os"
+	"path/filepath"
 
+	"myblog-gogogo/controller"
 	"myblog-gogogo/service"
 	"myblog-gogogo/service/settings"
 )
 
 // AdminHandler 管理后台页面处理器
 func AdminHandler(w http.ResponseWriter, r *http.Request) {
-	// 使用当前工作目录（支持 go run 和编译后的可执行文件）
-	tmplPath := "template/admin/admin.html"
-	tmpl, err := template.ParseFiles(tmplPath)
+	var tmpl *template.Template
+	var err error
+	templateFS := controller.GetTemplateFS()
+	
+	// 优先从嵌入的文件系统加载模板
+	if templateFS != nil {
+		tmpl, err = template.ParseFS(templateFS, "template/admin/admin.html")
+	}
+	
+	// 如果嵌入失败或未设置，回退到本地文件系统
+	if err != nil || templateFS == nil {
+		tmplPath := "template/admin/admin.html"
+		tmpl, err = template.ParseFiles(tmplPath)
+		if err != nil {
+			// 尝试使用可执行文件所在目录
+			execPath, execErr := os.Executable()
+			if execErr == nil {
+				execDir := filepath.Dir(execPath)
+				tmplPath := filepath.Join(execDir, "template/admin/admin.html")
+				tmpl, err = template.ParseFiles(tmplPath)
+			}
+		}
+	}
+	
 	if err != nil {
 		http.Error(w, "模板加载失败", http.StatusInternalServerError)
 		return

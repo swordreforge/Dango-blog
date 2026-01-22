@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,7 +16,19 @@ import (
 	"myblog-gogogo/service/settings"
 )
 
+var templateFS fs.FS
+
 var templates *template.Template
+
+// SetTemplateFS 设置嵌入的模板文件系统
+func SetTemplateFS(fs fs.FS) {
+	templateFS = fs
+}
+
+// GetTemplateFS 获取嵌入的模板文件系统
+func GetTemplateFS() fs.FS {
+	return templateFS
+}
 
 // getAppearanceSettings 获取外观设置，如果失败则返回默认设置
 func getAppearanceSettings() *settings.AppearanceSettings {
@@ -24,24 +37,36 @@ func getAppearanceSettings() *settings.AppearanceSettings {
 
 func init() {
 	// 初始化模板
-	// 优先使用当前工作目录，而不是可执行文件所在目录
-	// 这样可以支持 go run 和编译后的可执行文件
-	templatePath := "template/*.html"
+	// 优先使用嵌入的文件系统（如果已设置），否则回退到本地文件系统
+	// 这样可以支持编译后的单文件部署和开发时的动态加载
 	
-	// 尝试解析模板
-	tmpl, err := template.ParseGlob(templatePath)
-	if err != nil {
-		// 如果当前工作目录找不到，尝试使用可执行文件所在目录
-		execPath, execErr := os.Executable()
-		if execErr == nil {
-			execDir := filepath.Dir(execPath)
-			templatePath = filepath.Join(execDir, "template/*.html")
-			tmpl, err = template.ParseGlob(templatePath)
-		}
+	var tmpl *template.Template
+	var err error
+	
+	// 尝试从嵌入的文件系统加载模板（如果已设置）
+	if templateFS != nil {
+		tmpl, err = template.ParseFS(templateFS, "template/*.html", "template/admin/*.html", "template/status/*.html")
 	}
 	
-	if err != nil {
-		panic(fmt.Sprintf("Failed to parse templates: %v", err))
+	// 如果嵌入失败或未设置，尝试从本地文件系统加载
+	if err != nil || templateFS == nil {
+		templatePath := "template/*.html"
+		
+		// 尝试解析模板
+		tmpl, err = template.ParseGlob(templatePath)
+		if err != nil {
+			// 如果当前工作目录找不到，尝试使用可执行文件所在目录
+			execPath, execErr := os.Executable()
+			if execErr == nil {
+				execDir := filepath.Dir(execPath)
+				templatePath = filepath.Join(execDir, "template/*.html")
+				tmpl, err = template.ParseGlob(templatePath)
+			}
+		}
+		
+		if err != nil {
+			panic(fmt.Sprintf("Failed to parse templates: %v", err))
+		}
 	}
 	
 	templates = template.Must(tmpl, nil)
@@ -438,6 +463,8 @@ func RenderStatusPage(w http.ResponseWriter, statusCode int) {
 	var templateFile string
 	var title string
 	var codeStr string
+	var tmpl *template.Template
+	var err error
 
 	switch statusCode {
 	case 302:
@@ -478,9 +505,26 @@ func RenderStatusPage(w http.ResponseWriter, statusCode int) {
 		codeStr = "404"
 	}
 
-	// 使用当前工作目录
-	tmplPath := filepath.Join("template", "status", templateFile)
-	tmpl, err := template.ParseFiles(tmplPath)
+	// 优先从嵌入的文件系统加载模板
+	if templateFS != nil {
+		tmpl, err = template.ParseFS(templateFS, "template/status/"+templateFile)
+	}
+	
+	// 如果嵌入失败或未设置，回退到本地文件系统
+	if err != nil || templateFS == nil {
+		tmplPath := filepath.Join("template", "status", templateFile)
+		tmpl, err = template.ParseFiles(tmplPath)
+		if err != nil {
+			// 尝试使用可执行文件所在目录
+			execPath, execErr := os.Executable()
+			if execErr == nil {
+				execDir := filepath.Dir(execPath)
+				tmplPath = filepath.Join(execDir, "template", "status", templateFile)
+				tmpl, err = template.ParseFiles(tmplPath)
+			}
+		}
+	}
+	
 	if err != nil {
 		http.Error(w, "模板加载失败", http.StatusInternalServerError)
 		return

@@ -3,6 +3,8 @@ package drivers
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 	_ "modernc.org/sqlite"
@@ -12,6 +14,12 @@ import (
 type SQLiteDriver struct{}
 
 func (d *SQLiteDriver) Connect(config Config) (*sql.DB, error) {
+	// 确保数据库文件的父目录存在
+	dbDir := filepath.Dir(config.FilePath)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create database directory %s: %w", dbDir, err)
+	}
+
 	dsn := d.DSN(config)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
