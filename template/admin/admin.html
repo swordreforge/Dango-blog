@@ -4007,11 +4007,7 @@ input[type="range"]::-moz-range-thumb:hover {
         <div class="form-group">
           <label for="articleCategory">分类</label>
           <select id="articleCategory" class="form-control">
-            <option value="frontend">前端开发</option>
-            <option value="backend">后端开发</option>
-            <option value="design">设计</option>
-            <option value="ai">人工智能</option>
-            <option value="tools">工具推荐</option>
+            <!-- 分类将通过JavaScript动态加载 -->
           </select>
         </div>
 
@@ -5031,6 +5027,62 @@ async function populateTagSelectorForUpload() {
     });
 
     selector.appendChild(tagOption);
+  });
+}
+
+// 填充上传文章模态框的分类选择器
+async function populateCategorySelectorForUpload() {
+  const selector = document.getElementById('uploadCategory');
+  if (!selector) return;
+
+  // 获取分类列表
+  const categories = await fetchCategories();
+
+  // 清空现有选项
+  selector.innerHTML = '';
+
+  if (categories.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = '暂无分类';
+    selector.appendChild(option);
+    return;
+  }
+
+  // 添加分类选项
+  categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category.name;
+    option.textContent = category.name;
+    selector.appendChild(option);
+  });
+}
+
+// 填充新建文章模态框的分类选择器
+async function populateCategorySelectorForNewArticle() {
+  const selector = document.getElementById('articleCategory');
+  if (!selector) return;
+
+  // 获取分类列表
+  const categories = await fetchCategories();
+
+  // 清空现有选项
+  selector.innerHTML = '';
+
+  if (categories.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = '暂无分类';
+    selector.appendChild(option);
+    return;
+  }
+
+  // 添加分类选项
+  categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category.name;
+    option.textContent = category.name;
+    selector.appendChild(option);
   });
 }
 
@@ -6648,6 +6700,8 @@ document.querySelectorAll('[data-modal]').forEach(element => {
 document.getElementById('uploadArticleBtn').addEventListener('click', async () => {
   // 加载标签选择器
   await populateTagSelectorForUpload();
+  // 加载分类选择器
+  await populateCategorySelectorForUpload();
   openModal('uploadModal');
 });
 
@@ -6655,6 +6709,8 @@ document.getElementById('uploadArticleBtn').addEventListener('click', async () =
 document.getElementById('newArticleBtn').addEventListener('click', async () => {
   // 加载标签选择器
   await populateTagSelectorForNewArticle();
+  // 加载分类选择器
+  await populateCategorySelectorForNewArticle();
   openModal('articleModal');
 });
 
