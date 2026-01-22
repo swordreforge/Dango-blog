@@ -678,6 +678,22 @@ class AdminKeyboardManager {
         }
         break;
         
+      case 'y':
+        // y = yes/确认：点击主要操作按钮
+        const confirmBtn = this.activeModal.querySelector('button[type="submit"], .btn-primary');
+        if (confirmBtn) {
+          confirmBtn.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+        
+      case 'c':
+        // c = cancel/取消：关闭模态框
+        this.closeCurrentModal();
+        event.preventDefault();
+        return true;
+        
       case 'Tab':
         // 实现模态框内的循环 Tab 导航
         this.handleTabNavigation(event);
@@ -1879,9 +1895,13 @@ class AdminKeyboardManager {
         
         <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">模态框操作</h4>
         <ul style="color: rgba(255,255,255,0.7); line-height: 1.8;">
+          <li><kbd>y</kbd> - 确认/保存</li>
+          <li><kbd>c</kbd> - 取消/关闭</li>
           <li><kbd>Esc</kbd> - 关闭模态框</li>
           <li><kbd>Enter</kbd> - 确认/主要操作</li>
           <li><kbd>s</kbd> - 保存/提交</li>
+          <li><kbd>Tab</kbd> - 在元素间导航</li>
+          <li><kbd>Shift+Tab</kbd> - 反向导航</li>
         </ul>
       </div>
     `;
