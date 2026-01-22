@@ -621,6 +621,9 @@ class AdminKeyboardManager {
   handleModalShortcuts(key, event) {
     if (!this.activeModal) return false;
     
+    const activeElement = document.activeElement;
+    const isInput = this.isInputElement(activeElement);
+    
     switch(key) {
       case 'Escape':
         this.closeCurrentModal();
@@ -628,22 +631,67 @@ class AdminKeyboardManager {
         return true;
         
       case 'Enter':
-        // 查找并点击主要操作按钮
-        const primaryBtn = this.activeModal.querySelector('.btn-primary');
-        if (primaryBtn && !this.isInputElement(document.activeElement)) {
-          primaryBtn.click();
-          event.preventDefault();
-          return true;
+        // 如果在文本域中且按了 Shift+Enter，允许换行
+        if (isInput && activeElement.tagName === 'TEXTAREA' && event.shiftKey) {
+          return false; // 让默认行为生效
+        }
+        
+        // 如果在输入框中，提交表单
+        if (isInput) {
+          // 查找表单并提交
+          const form = activeElement.closest('form');
+          if (form) {
+            const submitBtn = form.querySelector('button[type="submit"], .btn-primary');
+            if (submitBtn) {
+              submitBtn.click();
+              event.preventDefault();
+              return true;
+            }
+          }
+          
+          // 如果没有表单，查找模态框中的主要按钮
+          const primaryBtn = this.activeModal.querySelector('.btn-primary');
+          if (primaryBtn) {
+            primaryBtn.click();
+            event.preventDefault();
+            return true;
+          }
+        }
+        // 如果不在输入框中，点击主要操作按钮
+        else {
+          const primaryBtn = this.activeModal.querySelector('.btn-primary');
+          if (primaryBtn) {
+            primaryBtn.click();
+            event.preventDefault();
+            return true;
+          }
         }
         break;
         
       case 's':
         // 查找并点击保存/提交按钮
         const submitBtn = this.activeModal.querySelector('button[type="submit"], .btn-primary');
-        if (submitBtn && !this.isInputElement(document.activeElement)) {
+        if (submitBtn) {
           submitBtn.click();
           event.preventDefault();
           return true;
+        }
+        break;
+        
+      case 'Tab':
+        if (!isInput) {
+          // 如果不在输入框中，聚焦到第一个输入框
+          this.focusFirstInput(this.activeModal);
+          event.preventDefault();
+          return true;
+        }
+        break;
+        
+      case 'ArrowDown':
+      case 'ArrowUp':
+        // 如果在 select 元素中，让默认行为生效
+        if (isInput && activeElement.tagName === 'SELECT') {
+          return false;
         }
         break;
     }
@@ -1545,6 +1593,8 @@ class AdminKeyboardManager {
         mutation.addedNodes.forEach((node) => {
           if (node.classList && node.classList.contains('modal') && node.classList.contains('active')) {
             this.activeModal = node;
+            // 自动聚焦到第一个输入框
+            this.focusFirstInput(node);
           }
         });
         
@@ -1560,6 +1610,29 @@ class AdminKeyboardManager {
       childList: true,
       subtree: true
     });
+  }
+  
+  // 聚焦到模态框中的第一个输入框
+  focusFirstInput(modal) {
+    if (!modal) return;
+    
+    // 查找第一个可聚焦的输入元素
+    const focusableElements = modal.querySelectorAll(
+      'input[type="text"], input[type="email"], input[type="password"], ' +
+      'input[type="number"], input[type="url"], textarea, select'
+    );
+    
+    if (focusableElements.length > 0) {
+      // 延迟一点聚焦，确保模态框动画完成
+      setTimeout(() => {
+        const firstInput = focusableElements[0];
+        firstInput.focus();
+        // 选中文本（如果有）
+        if (firstInput.type === 'text' || firstInput.tagName === 'TEXTAREA') {
+          firstInput.select();
+        }
+      }, 300);
+    }
   }
 
   closeCurrentModal() {
