@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,20 +11,18 @@ import (
 )
 
 var (
-	// JWT secret key - 每次启动应用时随机生成 32 位 key
-	jwtSecret = generateRandomKey()
+	// JWT secret key - 从配置加载
+	jwtSecret []byte
 	// Token过期时间
 	tokenExpiration = 24 * time.Hour
 )
 
-// generateRandomKey 生成随机的 32 位 JWT key
-func generateRandomKey() []byte {
-	bytes := make([]byte, 16) // 16 字节 = 32 个十六进制字符
-	if _, err := rand.Read(bytes); err != nil {
-		// 如果随机数生成失败,使用硬编码的默认 key
-		return []byte("your-secret-key-change-this-in-production")
+// InitJWTSecret 初始化 JWT secret（在应用启动时调用）
+func InitJWTSecret(secret string) {
+	if secret == "" {
+		panic("JWT secret cannot be empty")
 	}
-	return []byte(hex.EncodeToString(bytes))
+	jwtSecret = []byte(secret)
 }
 
 // Claims 自定义JWT claims

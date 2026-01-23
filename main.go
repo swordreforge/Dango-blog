@@ -67,6 +67,16 @@ func main() {
 	} else {
 		beautify.Leaf("Kafka: 未启用")
 	}
+	beautify.Branch("JWT 配置")
+	beautify.Leaf(fmt.Sprintf("Secret: %s...", cfg.JWTSecret[:min(8, len(cfg.JWTSecret))]))
+	beautify.Outdent()
+
+	// 初始化 JWT secret
+	beautify.Section("JWT 初始化")
+	beautify.Indent()
+	beautify.Info("正在初始化 JWT secret...")
+	controller.InitJWTSecret(cfg.JWTSecret)
+	beautify.SuccessLeaf("JWT secret 初始化成功")
 	beautify.Outdent()
 
 	// 初始化数据库

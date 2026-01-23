@@ -2025,7 +2025,7 @@ input[type="range"]::-moz-range-thumb:hover {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('/img/test.png');
+  background-image: url('/img/test.webp');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -2775,6 +2775,35 @@ body.admin-focus-mode .data-table tr:hover {
   border-color: rgba(255, 183, 122, 0.7);
 }
 
+/* 管理员页面快捷键帮助按钮 */
+#adminShortcutsHelpBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  margin-left: 15px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  color: #666;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#adminShortcutsHelpBtn:hover {
+  color: #007bff;
+  background: rgba(0, 123, 255, 0.05);
+  border-color: rgba(0, 123, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+#adminShortcutsHelpBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* 聚焦模式提示 */
 .focus-mode-indicator {
   position: fixed;
@@ -3070,16 +3099,24 @@ body.admin-focus-mode .modal-header {
       
       <!-- 标签页导航 -->
       <div class="tab-nav">
-        <button class="tab-btn active" data-tab="articles">文章管理</button>
-        <button class="tab-btn" data-tab="users">用户管理</button>
-        <button class="tab-btn" data-tab="comments">评论管理</button>
-        <button class="tab-btn" data-tab="categories">分类管理</button>
-        <button class="tab-btn" data-tab="tags">标签管理</button>
-        <button class="tab-btn" data-tab="analytics">统计分析</button>
-        <button class="tab-btn" data-tab="about">关于页面</button>
-        <button class="tab-btn" data-tab="filemanager">文件管理</button>
-        <button class="tab-btn" data-tab="attachments">附件管理</button>
-        <button class="tab-btn" data-tab="settings">系统设置</button>
+        <button class="tab-btn active" data-tab="articles">文章管理<span class="shortcut-hint">1</span></button>
+        <button class="tab-btn" data-tab="users">用户管理<span class="shortcut-hint">2</span></button>
+        <button class="tab-btn" data-tab="comments">评论管理<span class="shortcut-hint">3</span></button>
+        <button class="tab-btn" data-tab="categories">分类管理<span class="shortcut-hint">4</span></button>
+        <button class="tab-btn" data-tab="tags">标签管理<span class="shortcut-hint">5</span></button>
+        <button class="tab-btn" data-tab="analytics">统计分析<span class="shortcut-hint">6</span></button>
+        <button class="tab-btn" data-tab="about">关于页面<span class="shortcut-hint">7</span></button>
+        <button class="tab-btn" data-tab="filemanager">文件管理<span class="shortcut-hint">8</span></button>
+        <button class="tab-btn" data-tab="attachments">附件管理<span class="shortcut-hint">9</span></button>
+        <button class="tab-btn" data-tab="settings">系统设置<span class="shortcut-hint">0</span></button>
+        <button class="shortcuts-help-btn" id="adminShortcutsHelpBtn" title="快捷键帮助">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          快捷键
+        </button>
       </div>
       
       <!-- 标签页内容 -->
@@ -3703,7 +3740,7 @@ body.admin-focus-mode .modal-header {
             <div class="settings-grid">
               <div class="form-group">
                 <label for="backgroundImage">背景图片路径</label>
-                <input type="text" id="backgroundImage" class="form-control" placeholder="/img/test.png">
+                <input type="text" id="backgroundImage" class="form-control" placeholder="/img/test.webp">
                 <p style="font-size: 0.85em; color: #666; margin-top: 5px;">支持相对路径或绝对URL</p>
               </div>
 
@@ -3967,7 +4004,7 @@ body.admin-focus-mode .modal-header {
 
               <div class="form-group">
                 <label for="globalAvatar">全局头像路径</label>
-                <input type="text" id="globalAvatar" class="form-control" placeholder="/img/avatar.png">
+                <input type="text" id="globalAvatar" class="form-control" placeholder="/img/avatar.webp">
                 <p style="font-size: 0.85em; color: #666; margin-top: 5px;">全局用户头像图片路径（支持相对路径或绝对URL）</p>
               </div>
             </div>
@@ -4134,7 +4171,7 @@ body.admin-focus-mode .modal-header {
 
               <div class="form-group">
                 <label for="sponsorImage">赞助图片路径</label>
-                <input type="text" id="sponsorImage" class="form-control" placeholder="/img/avatar.png">
+                <input type="text" id="sponsorImage" class="form-control" placeholder="/img/avatar.webp">
                 <p style="font-size: 0.85em; color: #666; margin-top: 5px;">赞助二维码图片的路径</p>
               </div>
 
@@ -5670,7 +5707,7 @@ async function updateWelcomeMessage() {
   }
 
   // 获取全局头像设置
-  let avatarPath = '/img/avatar.png';
+  let avatarPath = '/img/avatar.webp';
   try {
     const token = localStorage.getItem('auth_token');
     const headers = {
@@ -7058,67 +7095,6 @@ document.getElementById('addUploadTagBtn').addEventListener('click', async funct
   showToast(`标签 "${tagText}" 已添加`, 'success');
 });
 
-// 创建新分类功能
-document.getElementById('addCategoryBtn').addEventListener('click', async function() {
-  const categoryName = prompt('请输入新分类名称：');
-
-  if (!categoryName || !categoryName.trim()) {
-    showToast('分类名称不能为空', 'warning');
-    return;
-  }
-
-  const trimmedName = categoryName.trim();
-
-  // 检查分类是否已存在
-  const categorySelect = document.getElementById('uploadCategory');
-  const existingCategories = Array.from(categorySelect.options).map(option =>
-    option.value ? option.value.toLowerCase() : ''
-  );
-
-  if (existingCategories.includes(trimmedName.toLowerCase())) {
-    showToast('分类已存在', 'warning');
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch('/api/admin/categories', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        name: trimmedName,
-        description: '',
-        icon: '',
-        sort_order: 0,
-        is_enabled: true
-      })
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      // 添加新分类到选择器
-      const newOption = document.createElement('option');
-      newOption.value = trimmedName;
-      newOption.textContent = trimmedName;
-      categorySelect.appendChild(newOption);
-
-      // 选中新创建的分类
-      categorySelect.value = trimmedName;
-
-      showToast(`分类 "${trimmedName}" 创建成功`, 'success');
-    } else {
-      showToast(`创建分类失败：${result.message || '未知错误'}`, 'error');
-    }
-  } catch (error) {
-    console.error('创建分类失败:', error);
-    showToast('创建分类失败，请检查网络连接', 'error');
-  }
-});
-
 // 文件上传功能
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
@@ -7841,6 +7817,44 @@ document.getElementById('confirmAction').addEventListener('click', async functio
         apiUrl = `/api/about/main-cards/delete?id=${currentItemId}`;
       } else if (currentAction === 'delete-sub-card') {
         apiUrl = `/api/about/sub-cards/delete?id=${currentItemId}`;
+      } else if (currentAction === 'delete-attachment') {
+        apiUrl = `/api/attachments?id=${currentItemId}`;
+      } else if (currentAction === 'batch-delete-attachment') {
+        // 批量删除附件不使用 API，直接在客户端处理
+        const ids = currentItemId.split(',');
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of ids) {
+          try {
+            const response = await fetch(`/api/attachments?id=${id}`, {
+              method: 'DELETE'
+            });
+            const result = await response.json();
+
+            if (result.success) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch (error) {
+            console.error('删除失败:', error);
+            failCount++;
+          }
+        }
+
+        closeModal('confirmModal');
+        if (successCount > 0) {
+          showToast(`成功删除 ${successCount} 个附件`, 'success');
+        }
+        if (failCount > 0) {
+          showToast(`${failCount} 个附件删除失败`, 'error');
+        }
+
+        selectedAttachments.clear();
+        updateBatchActions();
+        loadAttachments();
+        return;
       }
 
       const response = await fetch(apiUrl, {
@@ -7870,6 +7884,10 @@ document.getElementById('confirmAction').addEventListener('click', async functio
           loadSubCards();
         } else if (currentAction === 'delete-sub-card') {
           loadSubCards();
+        } else if (currentAction === 'delete-attachment') {
+          selectedAttachments.delete(currentItemId);
+          updateBatchActions();
+          loadAttachments();
         } else {
           fetchAdminData();
         }
@@ -8196,7 +8214,7 @@ async function loadSettings() {
       originalAppearanceSettings = { ...settings };
 
       // 填充表单
-      document.getElementById('backgroundImage').value = settings.background_image || '/img/test.png';
+      document.getElementById('backgroundImage').value = settings.background_image || '/img/test.webp';
       document.getElementById('globalOpacity').value = settings.global_opacity || '0.15';
       document.getElementById('opacityValue').textContent = settings.global_opacity || '0.15';
       document.getElementById('backgroundSize').value = settings.background_size || 'cover';
@@ -8320,7 +8338,7 @@ async function saveSettings() {
 // 重置设置
 function resetSettings() {
   if (confirm('确定要重置为默认设置吗？')) {
-    document.getElementById('backgroundImage').value = '/img/test.png';
+    document.getElementById('backgroundImage').value = '/img/test.webp';
     document.getElementById('globalOpacity').value = '0.15';
     document.getElementById('opacityValue').textContent = '0.15';
     document.getElementById('backgroundSize').value = 'cover';
@@ -8635,7 +8653,7 @@ async function loadTemplateSettings() {
       document.getElementById('templateGreting').value = settings.greting || '';
       document.getElementById('templateYear').value = settings.year || '';
       document.getElementById('templateFoodes').value = settings.foodes || '';
-      document.getElementById('globalAvatar').value = settings.global_avatar || '/img/avatar.png';
+      document.getElementById('globalAvatar').value = settings.global_avatar || '/img/avatar.webp';
 
       // 填充文章标题设置
       document.getElementById('templateArticleTitle').checked = settings.article_title || false;
@@ -8671,7 +8689,7 @@ async function loadTemplateSettings() {
       // 填充赞助设置
       document.getElementById('sponsorEnabled').checked = settings.sponsor_enabled || false;
       document.getElementById('sponsorTitle').value = settings.sponsor_title || '感谢您的支持';
-      document.getElementById('sponsorImage').value = settings.sponsor_image || '/img/avatar.png';
+      document.getElementById('sponsorImage').value = settings.sponsor_image || '/img/avatar.webp';
       document.getElementById('sponsorDescription').value = settings.sponsor_description || '如果您觉得这个博客对您有帮助，欢迎赞助支持！';
       document.getElementById('sponsorButtonText').value = settings.sponsor_button_text || '❤️ 赞助支持';
     } else {
@@ -11425,69 +11443,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 删除附件
   window.deleteAttachment = async function(id) {
-    if (!confirm('确定要删除这个附件吗？此操作不可恢复。')) {
-      return;
-    }
+    currentAction = 'delete-attachment';
+    currentItemId = id;
 
-    try {
-      const response = await fetch(`/api/attachments?id=${id}`, {
-        method: 'DELETE'
-      });
-      const result = await response.json();
-
-      if (result.success) {
-        showToast('删除成功', 'success');
-        selectedAttachments.delete(id);
-        updateBatchActions();
-        loadAttachments();
-      } else {
-        showToast('删除失败: ' + result.message, 'error');
-      }
-    } catch (error) {
-      console.error('删除失败:', error);
-      showToast('删除失败', 'error');
-    }
+    const message = `确定要删除附件 #${id} 吗？此操作不可撤销。`;
+    document.getElementById('confirmMessage').textContent = message;
+    openModal('confirmModal');
   };
 
   // 批量删除
   async function batchDelete() {
     if (selectedAttachments.size === 0) return;
 
-    if (!confirm(`确定要删除选中的 ${selectedAttachments.size} 个附件吗？此操作不可恢复。`)) {
-      return;
-    }
+    currentAction = 'batch-delete-attachment';
+    currentItemId = Array.from(selectedAttachments).join(',');
 
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const id of selectedAttachments) {
-      try {
-        const response = await fetch(`/api/attachments?id=${id}`, {
-          method: 'DELETE'
-        });
-        const result = await response.json();
-
-        if (result.success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
-      } catch (error) {
-        console.error('删除失败:', error);
-        failCount++;
-      }
-    }
-
-    if (successCount > 0) {
-      showToast(`成功删除 ${successCount} 个附件`, 'success');
-    }
-    if (failCount > 0) {
-      showToast(`${failCount} 个附件删除失败`, 'error');
-    }
-
-    selectedAttachments.clear();
-    updateBatchActions();
-    loadAttachments();
+    const message = `确定要删除选中的 ${selectedAttachments.size} 个附件吗？此操作不可恢复。`;
+    document.getElementById('confirmMessage').textContent = message;
+    openModal('confirmModal');
   }
 
   // 批量设置可见性
@@ -11568,6 +11541,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 初始化事件监听
   function initEventListeners() {
+    // 快捷键帮助按钮
+    const shortcutsHelpBtn = document.getElementById('adminShortcutsHelpBtn');
+    if (shortcutsHelpBtn && window.adminKeyboardManager) {
+      shortcutsHelpBtn.addEventListener('click', () => {
+        window.adminKeyboardManager.showAdminShortcutHelp();
+      });
+    }
+
     // 上传按钮
     if (elements.uploadBtn) {
       elements.uploadBtn.addEventListener('click', showUploadModal);

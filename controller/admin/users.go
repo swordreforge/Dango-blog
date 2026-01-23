@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"myblog-gogogo/auth"
 	"myblog-gogogo/db"
 	"myblog-gogogo/db/models"
 )
@@ -298,6 +299,20 @@ func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 		// 如果密码为空，使用原密码
 		if user.Password == "" {
 			user.Password = existingUser.Password
+		} else {
+			// 对新密码进行 Argon2id 哈希处理
+			hashedPassword, err := auth.HashPassword(user.Password)
+			if err != nil {
+				response := map[string]interface{}{
+					"success": false,
+					"message": "密码哈希失败",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+			user.Password = hashedPassword
 		}
 
 		// 更新用户

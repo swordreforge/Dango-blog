@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"myblog-gogogo/pkg/dto"
 )
 
 // ErrorResponse HTTP 错误响应结构
@@ -29,7 +31,14 @@ func SendError(w http.ResponseWriter, err error) {
 	var details string
 	var errorStr string
 
-	if appErr, ok := AsAppError(err); ok {
+	// 首先检查是否为 dto.BusinessError 类型
+	if businessErr, ok := err.(*dto.BusinessError); ok {
+		statusCode = http.StatusBadRequest
+		code = businessErr.Code
+		message = businessErr.Message
+		details = businessErr.Details
+		errorStr = err.Error()
+	} else if appErr, ok := AsAppError(err); ok {
 		statusCode = appErr.HTTPStatus()
 		code = appErr.Code()
 		message = appErr.Message()

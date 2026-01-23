@@ -713,6 +713,42 @@ footer p {
   transition: height 0.1s ease;
 }
 
+/* 关于页面聚焦模式样式 */
+body.about-focus-mode .about-card,
+body.about-focus-mode .feature-item,
+body.about-focus-mode .team-member,
+body.about-focus-mode .contact-item {
+  transition: all 0.3s ease;
+}
+
+body.about-focus-mode .about-focus-selected {
+  outline: 3px solid rgba(0, 123, 255, 0.8);
+  outline-offset: 4px;
+  transform: scale(1.02);
+  box-shadow: 0 10px 30px rgba(0, 123, 255, 0.3);
+}
+
+.about-focus-toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 10000;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.about-focus-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* 管理员专用元素 - 默认隐藏，只有管理员可见 */
 .admin-only {
   display: none !important;
@@ -753,7 +789,7 @@ footer p {
     <div class="modal-body">
       <div class="user-profile">
         <div class="user-avatar-container">
-          <img src="/img/avatar.png" alt="用户头像" class="user-avatar-image" id="userAvatar">
+          <img src="/img/avatar.webp" alt="用户头像" class="user-avatar-image" id="userAvatar">
         </div>
         <h3 id="userCenterUsername">用户名</h3>
       </div>
@@ -1503,6 +1539,8 @@ window.addEventListener('focus', function() {
   document.title = originalTitle;
 });
 </script>
+<!-- 关于页面聚焦模式脚本 -->
+<script src="/js/about-focus-mode.js"></script>
 <!-- 键盘快捷键脚本 -->
 <script src="/js/keyboard-shortcuts.js"></script>
 

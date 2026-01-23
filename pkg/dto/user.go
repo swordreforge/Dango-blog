@@ -21,9 +21,13 @@ type LoginResponse struct {
 
 // RegisterRequest 注册请求
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Username          string `json:"username" binding:"required"`
+	Email             string `json:"email" binding:"required,email"`
+	Password          string `json:"password"`
+	EncryptedPassword string `json:"encrypted_password"`
+	SessionID         string `json:"session_id"`
+	ClientPublicKey   string `json:"client_public_key"`
+	Algorithm         string `json:"algorithm"`
 }
 
 // RegisterResponse 注册响应

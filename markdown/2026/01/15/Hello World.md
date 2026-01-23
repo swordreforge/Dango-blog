@@ -64,6 +64,6 @@ func main() {
 
 这是一张测试图片：
 
-![测试图片](/img/test.png)
+![测试图片](/img/test.webp)
 
 图片应该显示在上方。

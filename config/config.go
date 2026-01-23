@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -17,6 +20,7 @@ type Config struct {
 	EnableTLS    bool
 	KafkaBrokers string
 	KafkaGroupID string
+	JWTSecret    string
 }
 
 // Load 从命令行参数加载配置
@@ -30,6 +34,7 @@ func Load() *Config {
 	enableTLS := flag.Bool("enable-tls", false, "Enable TLS (HTTPS/HTTP3)")
 	kafkaBrokers := flag.String("kafka-brokers", "", "Kafka brokers (comma-separated, leave empty to disable)")
 	kafkaGroupID := flag.String("kafka-group-id", "myblog-consumer-group", "Kafka consumer group ID")
+	jwtSecret := flag.String("jwt-secret", "", "JWT secret key (leave empty to auto-generate or load from ./data/jwt-secret)")
 	flag.Parse()
 
 	// 如果使用 SQLite 且路径是相对路径，将其转换为绝对路径
@@ -51,6 +56,24 @@ func Load() *Config {
 		}
 	}
 
+	// 处理 JWT secret
+	var jwtSecretValue string
+	if *jwtSecret != "" {
+		jwtSecretValue = *jwtSecret
+	} else {
+		// 尝试从文件读取
+		jwtSecretFile := filepath.Join(".", "data", "jwt-secret")
+		if secretBytes, err := os.ReadFile(jwtSecretFile); err == nil {
+			jwtSecretValue = string(secretBytes)
+		} else {
+			// 生成新的 secret 并保存
+			jwtSecretValue = generateRandomSecret()
+			if err := os.WriteFile(jwtSecretFile, []byte(jwtSecretValue), 0600); err != nil {
+				panic(fmt.Sprintf("Failed to save JWT secret: %v", err))
+			}
+		}
+	}
+
 	return &Config{
 		Port:         *port,
 		DBDriver:     *dbDriver,
@@ -61,5 +84,16 @@ func Load() *Config {
 		EnableTLS:    *enableTLS,
 		KafkaBrokers: *kafkaBrokers,
 		KafkaGroupID: *kafkaGroupID,
+		JWTSecret:    jwtSecretValue,
 	}
+}
+
+// generateRandomSecret 生成随机的 JWT secret
+func generateRandomSecret() string {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		// 如果随机数生成失败，使用硬编码的默认 secret
+		return "your-secret-key-change-this-in-production"
+	}
+	return hex.EncodeToString(bytes)
 }

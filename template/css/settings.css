@@ -193,7 +193,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: var(--preview-image, url('/img/test.png'));
+  background-image: var(--preview-image, url('/img/test.webp'));
   background-size: var(--preview-size, cover);
   background-position: var(--preview-position, center);
   background-repeat: var(--preview-repeat, no-repeat);

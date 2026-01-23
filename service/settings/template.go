@@ -74,7 +74,7 @@ func GetTemplate() (*TemplateSettings, error) {
 		Live2DHeight:            "250px",
 		SponsorEnabled:          false,
 		SponsorTitle:            "感谢您的支持",
-		SponsorImage:            "/img/avatar.png",
+		SponsorImage:            "/img/avatar.webp",
 		SponsorDescription:      "如果您觉得这个博客对您有帮助，欢迎赞助支持！",
 		SponsorButtonText:       "❤️ 赞助支持",
 		GlobalAvatar:            "/img/avatar.png",

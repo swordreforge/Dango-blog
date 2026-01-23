@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"myblog-gogogo/auth"
 	"myblog-gogogo/db"
 	"myblog-gogogo/service"
 	"myblog-gogogo/service/settings"
@@ -94,7 +95,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// 如果获取失败，使用默认值
 		appearanceSettings = &settings.AppearanceSettings{
-			BackgroundImage:      "/img/test.png",
+			BackgroundImage:      "/img/test.webp",
 			GlobalOpacity:        "0.15",
 			BackgroundSize:       "cover",
 			BackgroundPosition:   "center",
@@ -621,4 +622,9 @@ func sendErrorResponse(w http.ResponseWriter, statusCode int, message string, co
 	}
 	
 	json.NewEncoder(w).Encode(response)
+}
+
+// InitJWTSecret 初始化 JWT secret
+func InitJWTSecret(secret string) {
+	auth.InitJWTSecret(secret)
 }

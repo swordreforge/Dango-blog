@@ -37,8 +37,28 @@ func (s *UserService) Register(req *dto.RegisterRequest) (*dto.RegisterResponse,
 		return nil, err
 	}
 
+	// 获取密码（支持明文和加密两种方式）
+	var password string
+	var err error
+
+	if req.EncryptedPassword != "" && req.SessionID != "" && req.ClientPublicKey != "" {
+		// 使用ECC加密方式，需要解密
+		if s.authSvc == nil {
+			return nil, fmt.Errorf("auth service not initialized")
+		}
+		password, err = s.authSvc.decryptPassword(req.EncryptedPassword, req.SessionID, req.ClientPublicKey)
+		if err != nil {
+			return nil, err
+		}
+	} else if req.Password != "" {
+		// 使用明文密码（不推荐，仅作为降级方案）
+		password = req.Password
+	} else {
+		return nil, dto.ErrPasswordRequired
+	}
+
 	// 验证密码
-	if err := s.validatePassword(req.Password); err != nil {
+	if err := s.validatePassword(password); err != nil {
 		return nil, err
 	}
 
@@ -61,7 +81,7 @@ func (s *UserService) Register(req *dto.RegisterRequest) (*dto.RegisterResponse,
 	// }
 
 	// 哈希密码
-	hashedPassword, err := auth.HashPassword(req.Password)
+	hashedPassword, err := auth.HashPassword(password)
 	if err != nil {
 		return nil, fmt.Errorf("密码哈希失败: %w", err)
 	}

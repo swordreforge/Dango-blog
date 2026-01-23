@@ -3,13 +3,25 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	apperrors "myblog-gogogo/pkg/errors"
 	"myblog-gogogo/pkg/dto"
 	"myblog-gogogo/service"
 )
 
-var userService = service.NewUserService()
+var (
+	userService     *service.UserService
+	userServiceOnce sync.Once
+)
+
+// getUserService 获取用户服务实例（延迟初始化）
+func getUserService() *service.UserService {
+	userServiceOnce.Do(func() {
+		userService = service.NewUserService()
+	})
+	return userService
+}
 
 // RegisterHandler 注册API处理器
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +37,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 调用用户服务
-	resp, err := userService.Register(&req)
+	resp, err := getUserService().Register(&req)
 	if err != nil {
 		apperrors.SendError(w, err)
 		return

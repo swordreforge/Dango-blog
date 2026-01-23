@@ -9,7 +9,7 @@ func GetAppearanceSettingsSafe() *settings.AppearanceSettings {
 	appearanceSettings, err := settings.GetAppearance()
 	if err != nil {
 		return &settings.AppearanceSettings{
-			BackgroundImage:      "/img/test.png",
+			BackgroundImage:      "/img/test.webp",
 			GlobalOpacity:        "0.15",
 			BackgroundSize:       "cover",
 			BackgroundPosition:   "center",

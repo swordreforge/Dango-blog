@@ -244,7 +244,7 @@ func (m *ECCManager) HybridDecrypt(encryptedData string, clientPubKeyPEM string)
 		return nil, fmt.Errorf("failed to parse client public key: %w", err)
 	}
 
-	// 2. 计算共享密钥（不使用HKDF，直接使用原始共享密钥）
+	// 2. 计算共享密钥（ECDH）
 	if m.privateKey.Curve != clientPubKey.Curve {
 		return nil, errors.New("curve mismatch")
 	}
@@ -259,7 +259,8 @@ func (m *ECCManager) HybridDecrypt(encryptedData string, clientPubKeyPEM string)
 		return nil, errors.New("failed to compute shared secret")
 	}
 
-	// 直接使用共享密钥的前32字节作为AES密钥（与Web Crypto API一致）
+	// 3. 直接使用共享密钥的原始字节作为AES密钥（Web Crypto API标准行为）
+	// Web Crypto API在ECDH模式下派生AES-GCM密钥时，直接使用共享密钥的前32字节
 	sharedSecret := sharedX.Bytes()
 	if len(sharedSecret) > 32 {
 		sharedSecret = sharedSecret[:32]
@@ -271,13 +272,13 @@ func (m *ECCManager) HybridDecrypt(encryptedData string, clientPubKeyPEM string)
 		sharedSecret = padded
 	}
 
-	// 3. 解码base64数据
+	// 4. 解码base64数据
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode encrypted data: %w", err)
 	}
 
-	// 4. 使用AES-GCM解密数据
+	// 5. 使用AES-GCM解密数据
 	block, err := aes.NewCipher(sharedSecret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)

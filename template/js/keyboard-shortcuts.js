@@ -14,6 +14,7 @@ class KeyboardShortcuts {
 
       // 功能快捷键
       'l': { action: 'openModal', modalId: 'loginModal', label: '登录' },
+      '/': { action: 'showHelp', label: '快捷键帮助' },
       'Escape': { action: 'closeAllModals', label: '关闭模态框' },
 
       // 音乐播放器快捷键
@@ -79,6 +80,12 @@ class KeyboardShortcuts {
       return;
     }
 
+    // 检查是否在关于页面且处于聚焦模式
+    const isAboutFocusMode = document.body.classList.contains('about-focus-mode');
+    if (isAboutFocusMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      return;
+    }
+
     const key = e.key;
     let shortcut = null;
 
@@ -140,6 +147,11 @@ class KeyboardShortcuts {
           modal.classList.remove('active');
         });
         this.showToast('已关闭所有模态框', 'success');
+        break;
+
+      case 'showHelp':
+        this.showHelpModal();
+        this.showToast('快捷键帮助', 'success');
         break;
 
       case 'music':
@@ -234,6 +246,11 @@ class KeyboardShortcuts {
     return window.location.pathname === '/collect' || window.location.pathname.startsWith('/collect/');
   }
 
+  isAboutPage() {
+    // 检查是否在关于页面
+    return window.location.pathname === '/about';
+  }
+
   showShortcutHints() {
     // 为导航链接添加快捷键提示
     const navLinks = document.querySelectorAll('nav a, nav button');
@@ -281,6 +298,7 @@ class KeyboardShortcuts {
         <line x1="12" y1="17" x2="12.01" y2="17"></line>
       </svg>
       快捷键
+      <span class="shortcut-hint">/</span>
     `;
     
     helpButton.addEventListener('click', () => this.showHelpModal());
@@ -308,7 +326,7 @@ class KeyboardShortcuts {
             ${this.renderShortcutList(['1', '2', '3', '4', '6'])}
 
             <h4>功能快捷键</h4>
-            ${this.renderShortcutList(['5', 'l', 'Escape'])}
+            ${this.renderShortcutList(['5', 'l', '/', 'Escape'])}
 
             ${this.isPassagePage() ? `
             <h4>文章页面 - 文本聚焦模式</h4>
@@ -345,6 +363,25 @@ class KeyboardShortcuts {
             </div>
             <div class="shortcut-description">
               聚焦模式下：↑ ↓ ← → 导航，Enter 进入子菜单/激活，ESC 返回
+            </div>
+            ` : ''}
+
+            ${this.isAboutPage() ? `
+            <h4>关于页面 - 聚焦模式</h4>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">i</kbd>
+              <span class="shortcut-label">进入聚焦模式</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">q</kbd>
+              <span class="shortcut-label">退出聚焦模式</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">ESC</kbd>
+              <span class="shortcut-label">暂时退出聚焦模式（可关闭模态框）</span>
+            </div>
+            <div class="shortcut-description">
+              聚焦模式下：↑ ↓ 导航卡片，Enter 查看卡片内容
             </div>
             ` : ''}
 
@@ -479,6 +516,9 @@ class AdminKeyboardManager {
     this.selectedFile = null;
     this.currentPath = '/';
     
+    // 关于界面的表格状态
+    this.aboutCurrentTable = 'main'; // 'main' 或 'sub'
+    
     this.tabs = [
       'articles', 'users', 'comments', 'categories', 'tags',
       'analytics', 'about', 'filemanager', 'attachments', 'settings'
@@ -561,7 +601,7 @@ class AdminKeyboardManager {
 
   handleInputShortcuts(event) {
     const key = this.getKeyString(event);
-    
+
     // 在输入框中只处理 Escape 键
     if (key === 'Escape') {
       if (this.activeModal) {
@@ -575,7 +615,74 @@ class AdminKeyboardManager {
         return true;
       }
     }
-    
+
+    // 在系统设置界面，允许 s 键、q 键和数字键生效
+    if (this.currentTab === 'settings' && this.isFocusMode) {
+      // 处理 q 键（退出聚焦模式）
+      if (key === 'q') {
+        event.target.blur();
+        this.exitFocusMode();
+        event.preventDefault();
+        return true;
+      }
+
+      // 处理 s 键（保存）
+      if (key === 's') {
+        // 先失去焦点，让输入值更新
+        event.target.blur();
+
+        // 然后触发保存
+        setTimeout(() => {
+          const currentTabPane = document.querySelector(`.tab-pane[data-tab="${this.currentTab}"], .tab-pane.active`);
+          if (currentTabPane) {
+            const visibleSection = this.getVisibleSettingsSection(currentTabPane);
+            if (visibleSection) {
+              let saveBtn = null;
+              const sectionTitle = visibleSection.querySelector('h4')?.textContent || '';
+
+              if (sectionTitle.includes('外观')) {
+                saveBtn = document.getElementById('saveSettingsBtn');
+              } else if (sectionTitle.includes('音乐')) {
+                saveBtn = document.getElementById('saveMusicSettingsBtn');
+              } else if (sectionTitle.includes('模板') || sectionTitle.includes('文章标题') || sectionTitle.includes('切换界面') || sectionTitle.includes('外部链接') || sectionTitle.includes('赞助')) {
+                saveBtn = document.getElementById('saveTemplateSettingsBtn');
+              }
+
+              if (saveBtn) {
+                saveBtn.click();
+              }
+            }
+          }
+        }, 100);
+
+        event.preventDefault();
+        return true;
+      }
+
+      // 处理数字键（快速跳转）
+      if (key >= '1' && key <= '7') {
+        // 先失去焦点，让输入值更新
+        event.target.blur();
+
+        // 然后触发跳转
+        setTimeout(() => {
+          const currentTabPane = document.querySelector(`.tab-pane[data-tab="${this.currentTab}"], .tab-pane.active`);
+          if (currentTabPane) {
+            const sectionIndex = parseInt(key);
+            const section = currentTabPane.querySelector(`.settings-section:nth-of-type(${sectionIndex})`);
+            if (section) {
+              section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              this.focusFirstInputInSection(section);
+              this.showToast(`已跳转到设置区块 ${key}`, 'success');
+            }
+          }
+        }, 100);
+
+        event.preventDefault();
+        return true;
+      }
+    }
+
     return false;
   }
 
@@ -635,7 +742,7 @@ class AdminKeyboardManager {
         if (isInput && activeElement.tagName === 'TEXTAREA' && event.shiftKey) {
           return false; // 让默认行为生效
         }
-        
+
         // 如果在输入框中，提交表单
         if (isInput) {
           // 查找表单并提交
@@ -648,7 +755,7 @@ class AdminKeyboardManager {
               return true;
             }
           }
-          
+
           // 如果没有表单，查找模态框中的主要按钮
           const primaryBtn = this.activeModal.querySelector('.btn-primary');
           if (primaryBtn) {
@@ -721,7 +828,16 @@ class AdminKeyboardManager {
         // 实现模态框内的循环 Tab 导航
         this.handleTabNavigation(event);
         return true;
-        
+
+      case ' ':
+        // 如果焦点在单选框或复选框上，模拟点击切换状态
+        if (activeElement && (activeElement.type === 'radio' || activeElement.type === 'checkbox')) {
+          activeElement.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+
       case 'ArrowDown':
       case 'ArrowUp':
         // 如果在 select 元素中，让默认行为生效
@@ -735,48 +851,54 @@ class AdminKeyboardManager {
 
   handleTabShortcuts(key, event) {
     // 标签页切换 (1-0)
-    if (key >= '0' && key <= '9') {
+    // 在系统设置标签页时，数字键用于区块导航，不用于标签页切换
+    if (key >= '0' && key <= '9' && this.currentTab !== 'settings') {
       const tabIndex = key === '0' ? 9 : parseInt(key) - 1;
-      
+
       if (tabIndex < this.tabs.length) {
         this.switchToTab(this.tabs[tabIndex]);
         event.preventDefault();
         return true;
       }
     }
-    
+
+    // 系统设置界面的 Tab 键特殊处理
+    if (this.currentTab === 'settings' && key === 'Tab') {
+      return this.handleSettingsTabNavigation(event);
+    }
+
     // 表格行导航（在所有标签页都可用）
     if (this.handleRowNavigation(key, event)) {
       return true;
     }
-    
+
     // 标签页内导航
     switch(key) {
       case 'ArrowRight':
         this.nextTab();
         event.preventDefault();
         return true;
-        
+
       case 'ArrowLeft':
         this.previousTab();
         event.preventDefault();
         return true;
-        
+
       case 'r':
         this.refreshCurrentTab();
         event.preventDefault();
         return true;
-        
+
       case 'n':
         this.createNewItem();
         event.preventDefault();
         return true;
-        
+
       case 'u':
         this.uploadItem();
         event.preventDefault();
         return true;
-        
+
       case 'f':
         this.openSearch();
         event.preventDefault();
@@ -803,6 +925,10 @@ class AdminKeyboardManager {
         return this.handleTagShortcuts(key, event);
       case 'attachments':
         return this.handleAttachmentShortcuts(key, event);
+      case 'about':
+        return this.handleAboutShortcuts(key, event);
+      case 'settings':
+        return this.handleSettingsShortcuts(key, event);
     }
     return false;
   }
@@ -903,15 +1029,25 @@ class AdminKeyboardManager {
   }
 
   handleCategoryShortcuts(key, event) {
-    if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
-    
     switch(key) {
+      case 'a':
+        // 点击添加分类按钮
+        const addCategoryBtn = document.getElementById('addCategoryBtn');
+        if (addCategoryBtn) {
+          addCategoryBtn.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+        
       case 'e':
+        if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
         this.editSelectedCategory();
         event.preventDefault();
         return true;
         
       case 'd':
+        if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
         this.deleteSelectedCategory();
         event.preventDefault();
         return true;
@@ -920,15 +1056,25 @@ class AdminKeyboardManager {
   }
 
   handleTagShortcuts(key, event) {
-    if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
-    
     switch(key) {
+      case 'a':
+        // 点击添加标签按钮
+        const addTagBtn = document.getElementById('addTagBtn');
+        if (addTagBtn) {
+          addTagBtn.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+        
       case 'e':
+        if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
         this.editSelectedTag();
         event.preventDefault();
         return true;
         
       case 'd':
+        if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
         this.deleteSelectedTag();
         event.preventDefault();
         return true;
@@ -938,18 +1084,18 @@ class AdminKeyboardManager {
 
   handleAttachmentShortcuts(key, event) {
     if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
-    
+
     switch(key) {
       case 'v':
         this.viewSelectedAttachment();
         event.preventDefault();
         return true;
-        
+
       case 'e':
         this.editSelectedAttachment();
         event.preventDefault();
         return true;
-        
+
       case 'd':
         this.deleteSelectedAttachment();
         event.preventDefault();
@@ -958,24 +1104,394 @@ class AdminKeyboardManager {
     return false;
   }
 
+  handleAboutShortcuts(key, event) {
+    if (!this.selectedRows.size && !this.hasSelectedRow()) return false;
+
+    const selectedRow = this.getSelectedRow();
+    if (!selectedRow) return false;
+
+    switch(key) {
+      case 'e':
+        // 编辑：点击编辑按钮
+        const editBtn = selectedRow.querySelector('button[onclick*="edit"]');
+        if (editBtn) {
+          editBtn.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case 'd':
+        // 禁用/启用：点击切换状态按钮
+        const toggleBtn = selectedRow.querySelector('button[onclick*="toggle"]');
+        if (toggleBtn) {
+          toggleBtn.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case 'c':
+        // 删除：点击删除按钮
+        const deleteBtn = selectedRow.querySelector('button.btn-danger');
+        if (deleteBtn) {
+          deleteBtn.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+    }
+    return false;
+  }
+
+  handleSettingsShortcuts(key, event) {
+    const currentTabPane = document.querySelector(`.tab-pane[data-tab="${this.currentTab}"], .tab-pane.active`);
+    if (!currentTabPane) return false;
+
+    switch(key) {
+      case '1':
+        // 跳转到外观设置
+        const appearanceSection = currentTabPane.querySelector('.settings-section:nth-of-type(1)');
+        if (appearanceSection) {
+          appearanceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.focusFirstInputInSection(appearanceSection);
+          this.showToast('已跳转到外观设置', 'success');
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case '2':
+        // 跳转到音乐设置
+        const musicSection = currentTabPane.querySelector('.settings-section:nth-of-type(2)');
+        if (musicSection) {
+          musicSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.focusFirstInputInSection(musicSection);
+          this.showToast('已跳转到音乐设置', 'success');
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case '3':
+        // 跳转到模板设置
+        const templateSection = currentTabPane.querySelector('.settings-section:nth-of-type(3)');
+        if (templateSection) {
+          templateSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.focusFirstInputInSection(templateSection);
+          this.showToast('已跳转到模板设置', 'success');
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case '4':
+        // 跳转到文章标题设置
+        const articleTitleSection = currentTabPane.querySelector('.settings-section:nth-of-type(4)');
+        if (articleTitleSection) {
+          articleTitleSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.focusFirstInputInSection(articleTitleSection);
+          this.showToast('已跳转到文章标题设置', 'success');
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case '5':
+        // 跳转到切换界面提示设置
+        const switchNoticeSection = currentTabPane.querySelector('.settings-section:nth-of-type(5)');
+        if (switchNoticeSection) {
+          switchNoticeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.focusFirstInputInSection(switchNoticeSection);
+          this.showToast('已跳转到切换界面提示设置', 'success');
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case '6':
+        // 跳转到外部链接设置
+        const externalLinkSection = currentTabPane.querySelector('.settings-section:nth-of-type(6)');
+        if (externalLinkSection) {
+          externalLinkSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.focusFirstInputInSection(externalLinkSection);
+          this.showToast('已跳转到外部链接设置', 'success');
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case '7':
+        // 跳转到赞助设置
+        const sponsorSection = currentTabPane.querySelector('.settings-section:nth-of-type(7)');
+        if (sponsorSection) {
+          sponsorSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.focusFirstInputInSection(sponsorSection);
+          this.showToast('已跳转到赞助设置', 'success');
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case 's':
+        // 保存设置：根据当前可视区域判断保存哪个区块
+        const visibleSection = this.getVisibleSettingsSection(currentTabPane);
+        if (visibleSection) {
+          let saveBtn = null;
+          const sectionTitle = visibleSection.querySelector('h4')?.textContent || '';
+
+          if (sectionTitle.includes('外观')) {
+            saveBtn = document.getElementById('saveSettingsBtn');
+          } else if (sectionTitle.includes('音乐')) {
+            saveBtn = document.getElementById('saveMusicSettingsBtn');
+          } else if (sectionTitle.includes('模板') || sectionTitle.includes('文章标题') || sectionTitle.includes('切换界面') || sectionTitle.includes('外部链接') || sectionTitle.includes('赞助')) {
+            saveBtn = document.getElementById('saveTemplateSettingsBtn');
+          }
+
+          if (saveBtn) {
+            saveBtn.click();
+            event.preventDefault();
+            return true;
+          }
+        }
+        break;
+
+      case 'r':
+        // 重置为默认
+        const resetBtn = document.getElementById('resetSettingsBtn');
+        if (resetBtn) {
+          resetBtn.click();
+          event.preventDefault();
+          return true;
+        }
+        break;
+
+      case '?':
+        // 显示设置快捷键帮助
+        this.showSettingsShortcutHelp();
+        event.preventDefault();
+        return true;
+    }
+
+    return false;
+  }
+
+  getVisibleSettingsSection(tabPane) {
+    const sections = tabPane.querySelectorAll('.settings-section');
+    const viewportCenter = window.innerHeight / 2;
+
+    for (const section of sections) {
+      const rect = section.getBoundingClientRect();
+      const sectionCenter = rect.top + rect.height / 2;
+
+      // 检查区块是否在视口中央区域
+      if (Math.abs(sectionCenter - viewportCenter) < rect.height / 2) {
+        return section;
+      }
+    }
+
+    return null;
+  }
+
+  focusFirstInputInSection(section) {
+    if (!section) return;
+
+    // 查找区块中第一个可聚焦的输入元素
+    const focusableElements = section.querySelectorAll(
+      'input[type="text"], input[type="number"], input[type="color"], ' +
+      'textarea, select, input[type="checkbox"]'
+    );
+
+    if (focusableElements.length > 0) {
+      // 延迟聚焦，确保滚动完成
+      setTimeout(() => {
+        const firstElement = focusableElements[0];
+        firstElement.focus();
+
+        // 确保元素在视口中可见
+        firstElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }
+
+  handleSettingsTabNavigation(event) {
+    // 获取所有表单控件（排除操作按钮）
+    const formControls = document.querySelectorAll(
+      '#settings input[type="text"], #settings input[type="number"], #settings input[type="color"], ' +
+      '#settings textarea, #settings select, #settings input[type="checkbox"], ' +
+      '#settings input[type="range"]'
+    );
+
+    if (formControls.length === 0) return false;
+
+    const activeElement = document.activeElement;
+    const currentIndex = Array.from(formControls).indexOf(activeElement);
+
+    if (event.shiftKey) {
+      // Shift+Tab: 反向导航
+      event.preventDefault();
+      if (currentIndex <= 0) {
+        // 如果在第一个元素，跳到最后一个
+        formControls[formControls.length - 1].focus();
+      } else {
+        formControls[currentIndex - 1].focus();
+      }
+    } else {
+      // Tab: 正向导航
+      event.preventDefault();
+      if (currentIndex === -1 || currentIndex >= formControls.length - 1) {
+        // 如果没有焦点或在最后一个元素，跳到第一个
+        formControls[0].focus();
+      } else {
+        formControls[currentIndex + 1].focus();
+      }
+    }
+
+    // 确保聚焦的元素在视口中可见
+    const newFocusedElement = document.activeElement;
+    if (newFocusedElement) {
+      newFocusedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    return true;
+  }
+
+  showSettingsShortcutHelp() {
+    const helpModal = document.createElement('div');
+    helpModal.className = 'modal shortcuts-help-modal active';
+    helpModal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>系统设置快捷键</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="shortcuts-list">
+            <h4>区块导航</h4>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">1</kbd>
+              <span class="shortcut-label">外观设置（背景、透明度、毛玻璃颜色等）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">2</kbd>
+              <span class="shortcut-label">音乐设置（播放器、上传、播放列表）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">3</kbd>
+              <span class="shortcut-label">模板设置（标题、欢迎语、年份、头像）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">4</kbd>
+              <span class="shortcut-label">文章标题设置（显示、前缀）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">5</kbd>
+              <span class="shortcut-label">切换界面提示设置</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">6</kbd>
+              <span class="shortcut-label">外部链接设置（警告、白名单、Live2D）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">7</kbd>
+              <span class="shortcut-label">赞助设置（标题、图片、描述）</span>
+            </div>
+
+            <h4>表单操作</h4>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">Tab</kbd>
+              <span class="shortcut-label">在表单控件间导航（Shift+Tab 反向）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">Space</kbd>
+              <span class="shortcut-label">切换复选框选中状态</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">↑</kbd>
+              <kbd class="shortcut-key">↓</kbd>
+              <span class="shortcut-label">在下拉框中切换选项</span>
+            </div>
+
+            <h4>功能快捷键</h4>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">s</kbd>
+              <span class="shortcut-label">保存当前区块设置（在输入框中也可用）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">r</kbd>
+              <span class="shortcut-label">重置为默认设置</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">q</kbd>
+              <span class="shortcut-label">退出聚焦模式（在输入框中也可用）</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd class="shortcut-key">?</kbd>
+              <span class="shortcut-label">显示此帮助</span>
+            </div>
+
+            <h4>提示</h4>
+            <div class="shortcut-description">
+              • 数字键可在编辑输入框时直接使用，无需先移出焦点<br>
+              • 按 s 键保存时，输入框会自动失去焦点并更新值<br>
+              • Tab 键只导航到表单控件，会跳过操作按钮
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(helpModal);
+
+    // 绑定关闭事件
+    const closeBtn = helpModal.querySelector('.modal-close');
+    closeBtn.addEventListener('click', () => {
+      helpModal.classList.remove('active');
+      setTimeout(() => helpModal.remove(), 300);
+    });
+
+    // 点击外部关闭
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) {
+        helpModal.classList.remove('active');
+        setTimeout(() => helpModal.remove(), 300);
+      }
+    });
+
+    // ESC 键关闭
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        helpModal.classList.remove('active');
+        setTimeout(() => helpModal.remove(), 300);
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+  }
+
   handleRowNavigation(key, event) {
     // 获取当前标签页的表格
     const currentTabPane = document.querySelector(`.tab-pane[data-tab="${this.currentTab}"], .tab-pane.active`);
     if (!currentTabPane) return false;
-    
+
+    // 关于界面特殊处理：有两个表格
+    if (this.currentTab === 'about') {
+      return this.handleAboutRowNavigation(key, event, currentTabPane);
+    }
+
     const table = currentTabPane.querySelector('.data-table');
     if (!table) return false;
-    
+
     const tbody = table.querySelector('tbody');
     if (!tbody) return false;
-    
+
     const rows = Array.from(tbody.querySelectorAll('tr'));
     if (rows.length === 0) return false;
-    
+
     // 获取当前选中的行
     let currentRow = this.getSelectedRow();
     let currentIndex = currentRow ? rows.indexOf(currentRow) : -1;
-    
+
     switch(key) {
       case 'ArrowUp':
         event.preventDefault();
@@ -986,7 +1502,7 @@ class AdminKeyboardManager {
           this.selectRow(rows[currentIndex - 1]);
         }
         return true;
-        
+
       case 'ArrowDown':
         event.preventDefault();
         if (currentIndex < 0 || currentIndex >= rows.length - 1) {
@@ -996,36 +1512,36 @@ class AdminKeyboardManager {
           this.selectRow(rows[currentIndex + 1]);
         }
         return true;
-        
+
       case 'Home':
         event.preventDefault();
         this.selectRow(rows[0]);
         return true;
-        
+
       case 'End':
         event.preventDefault();
         this.selectRow(rows[rows.length - 1]);
         return true;
-        
+
       case 'PageUp':
         event.preventDefault();
         const pageUpIndex = Math.max(0, currentIndex - 10);
         this.selectRow(rows[pageUpIndex]);
         return true;
-        
+
       case 'PageDown':
         event.preventDefault();
         const pageDownIndex = Math.min(rows.length - 1, currentIndex + 10);
         this.selectRow(rows[pageDownIndex]);
         return true;
-        
+
       case 'Enter':
         event.preventDefault();
         if (currentRow) {
           this.activateSelectedRow();
         }
         return true;
-        
+
       case ' ':
         event.preventDefault();
         if (currentRow) {
@@ -1033,7 +1549,125 @@ class AdminKeyboardManager {
         }
         return true;
     }
-    
+
+    return false;
+  }
+
+  handleAboutRowNavigation(key, event, currentTabPane) {
+    // 获取主卡片表格和次卡片表格
+    const mainTable = currentTabPane.querySelector('#mainCards');
+    const subTable = currentTabPane.querySelector('#subCards');
+
+    // 确定当前表格
+    let currentTable = this.aboutCurrentTable === 'main' ? mainTable : subTable;
+    let otherTable = this.aboutCurrentTable === 'main' ? subTable : mainTable;
+
+    if (!currentTable) return false;
+
+    const tbody = currentTable.querySelector('tbody');
+    if (!tbody) return false;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    if (rows.length === 0) return false;
+
+    // 获取当前选中的行
+    let currentRow = this.getSelectedRow();
+    let currentIndex = currentRow ? rows.indexOf(currentRow) : -1;
+
+    switch(key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        if (currentIndex <= 0) {
+          // 如果已经在第一行，检查是否可以切换到另一个表格
+          if (otherTable) {
+            const otherTbody = otherTable.querySelector('tbody');
+            const otherRows = Array.from(otherTbody.querySelectorAll('tr'));
+            if (otherRows.length > 0) {
+              // 切换到另一个表格的最后一行
+              this.aboutCurrentTable = this.aboutCurrentTable === 'main' ? 'sub' : 'main';
+              this.selectRow(otherRows[otherRows.length - 1]);
+              return true;
+            }
+          }
+          // 如果没有其他表格或为空，循环到当前表格的最后一行
+          this.selectRow(rows[rows.length - 1]);
+        } else {
+          this.selectRow(rows[currentIndex - 1]);
+        }
+        return true;
+
+      case 'ArrowDown':
+        event.preventDefault();
+        if (currentIndex < 0 || currentIndex >= rows.length - 1) {
+          // 如果没有选中行或在最后一行，检查是否可以切换到另一个表格
+          if (otherTable) {
+            const otherTbody = otherTable.querySelector('tbody');
+            const otherRows = Array.from(otherTbody.querySelectorAll('tr'));
+            if (otherRows.length > 0) {
+              // 切换到另一个表格的第一行
+              this.aboutCurrentTable = this.aboutCurrentTable === 'main' ? 'sub' : 'main';
+              this.selectRow(otherRows[0]);
+              return true;
+            }
+          }
+          // 如果没有其他表格或为空，循环到当前表格的第一行
+          this.selectRow(rows[0]);
+        } else {
+          this.selectRow(rows[currentIndex + 1]);
+        }
+        return true;
+
+      case 'Tab':
+        event.preventDefault();
+        // Tab 键在主卡片和次卡片表格之间切换
+        if (otherTable) {
+          const otherTbody = otherTable.querySelector('tbody');
+          const otherRows = Array.from(otherTbody.querySelectorAll('tr'));
+          if (otherRows.length > 0) {
+            this.aboutCurrentTable = this.aboutCurrentTable === 'main' ? 'sub' : 'main';
+            this.selectRow(otherRows[0]);
+            return true;
+          }
+        }
+        return false;
+
+      case 'Home':
+        event.preventDefault();
+        this.selectRow(rows[0]);
+        return true;
+
+      case 'End':
+        event.preventDefault();
+        this.selectRow(rows[rows.length - 1]);
+        return true;
+
+      case 'PageUp':
+        event.preventDefault();
+        const pageUpIndex = Math.max(0, currentIndex - 10);
+        this.selectRow(rows[pageUpIndex]);
+        return true;
+
+      case 'PageDown':
+        event.preventDefault();
+        const pageDownIndex = Math.min(rows.length - 1, currentIndex + 10);
+        this.selectRow(rows[pageDownIndex]);
+        return true;
+
+      case 'Enter':
+        event.preventDefault();
+        if (currentRow) {
+          this.activateSelectedRow();
+        }
+        return true;
+
+      case ' ':
+        event.preventDefault();
+        if (currentRow) {
+          this.toggleRowSelection(currentRow);
+        }
+        return true;
+    }
+
     return false;
   }
   
@@ -1187,6 +1821,10 @@ class AdminKeyboardManager {
       this.currentTab = tabId;
       // 切换标签页时清除之前选中的行
       this.clearRowSelection();
+      // 如果切换到关于界面，重置表格状态
+      if (tabId === 'about') {
+        this.aboutCurrentTable = 'main';
+      }
       console.log(`[管理员快捷键] 切换到标签页: ${tabId}`);
     }
   }
@@ -1935,6 +2573,46 @@ class AdminKeyboardManager {
           <li><kbd>p</kbd> - 发布文章</li>
         </ul>
         
+        <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">分类/标签管理</h4>
+        <ul style="color: rgba(255,255,255,0.7); line-height: 1.8;">
+          <li><kbd>e</kbd> - 编辑选中项</li>
+          <li><kbd>d</kbd> - 删除选中项</li>
+          <li><kbd>a</kbd> - 添加分类/标签</li>
+        </ul>
+        
+        <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">关于页面</h4>
+        <ul style="color: rgba(255,255,255,0.7); line-height: 1.8;">
+          <li><kbd>e</kbd> - 编辑选中卡片</li>
+          <li><kbd>d</kbd> - 禁用/启用卡片</li>
+          <li><kbd>c</kbd> - 删除卡片</li>
+          <li><kbd>Tab</kbd> - 在主卡片和次卡片表格间切换</li>
+        </ul>
+        
+        <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">附件管理</h4>
+        <ul style="color: rgba(255,255,255,0.7); line-height: 1.8;">
+          <li><kbd>v</kbd> - 查看详情</li>
+          <li><kbd>e</kbd> - 编辑附件</li>
+          <li><kbd>d</kbd> - 删除附件</li>
+        </ul>
+        
+        <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">系统设置</h4>
+        <ul style="color: rgba(255,255,255,0.7); line-height: 1.8;">
+          <li><kbd>1</kbd> - 外观设置（背景、透明度、毛玻璃颜色等）</li>
+          <li><kbd>2</kbd> - 音乐设置（播放器、控件、位置等）</li>
+          <li><kbd>3</kbd> - 模板设置（标题、欢迎语、年份等）</li>
+          <li><kbd>4</kbd> - 文章标题设置</li>
+          <li><kbd>5</kbd> - 切换界面提示设置</li>
+          <li><kbd>6</kbd> - 外部链接设置</li>
+          <li><kbd>7</kbd> - 赞助设置</li>
+          <li><kbd>s</kbd> - 保存当前区块设置（在输入框中也可用）</li>
+          <li><kbd>r</kbd> - 重置为默认设置</li>
+          <li><kbd>q</kbd> - 退出聚焦模式（在输入框中也可用）</li>
+          <li><kbd>?</kbd> - 显示设置快捷键帮助</li>
+          <li><kbd>Tab</kbd> - 在表单控件间导航</li>
+          <li><kbd>Shift+Tab</kbd> - 反向导航</li>
+          <li><kbd>Space</kbd> - 切换复选框</li>
+        </ul>
+        
         <h4 style="color: rgba(255,183,122,0.9); margin-top: 20px;">文件管理</h4>
         <ul style="color: rgba(255,255,255,0.7); line-height: 1.8;">
           <li><kbd>Enter</kbd> - 打开选中项</li>
@@ -1952,6 +2630,7 @@ class AdminKeyboardManager {
           <li><kbd>s</kbd> - 保存/提交</li>
           <li><kbd>Tab</kbd> - 在元素间导航</li>
           <li><kbd>Shift+Tab</kbd> - 反向导航</li>
+          <li><kbd>Space</kbd> - 切换复选框/单选框</li>
         </ul>
       </div>
     `;

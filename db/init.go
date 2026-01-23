@@ -553,7 +553,7 @@ func seedDefaultSettings() error {
 	defaultSettings := []models.Setting{
 		{
 			Key:         "background_image",
-			Value:       "/img/test.png",
+			Value:       "/img/test.webp",
 			Type:        "string",
 			Description: "页面背景图片路径",
 			Category:    "appearance",
@@ -841,7 +841,7 @@ func seedDefaultSettings() error {
 		},
 		{
 			Key:         "global_avatar",
-			Value:       "/img/avatar.png",
+			Value:       "/img/avatar.webp",
 			Type:        "string",
 			Description: "全局头像路径",
 			Category:    "template",

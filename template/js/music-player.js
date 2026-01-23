@@ -252,7 +252,7 @@ class MusicPlayer {
           artist: track.artist,
           url: `/music/${track.file_name}`,
           duration: track.duration || '未知',
-          cover: track.cover_image || '/img/avatar.png'
+          cover: track.cover_image || '/img/avatar.webp'
         }));
         this.updatePlaylistUI();
 
@@ -324,7 +324,7 @@ class MusicPlayer {
     playerContainer.innerHTML = `
       <!-- 左侧封面 -->
       <div class="music-cover">
-        <img id="musicCover" src="/img/avatar.png" alt="音乐封面">
+        <img id="musicCover" src="/img/avatar.webp" alt="音乐封面">
       </div>
 
       <!-- 中间区域 -->
@@ -695,7 +695,7 @@ class MusicPlayer {
       artist.textContent = track.artist;
     }
     if (cover) {
-      cover.src = track.cover || '/img/avatar.png';
+      cover.src = track.cover || '/img/avatar.webp';
     }
   }
 
