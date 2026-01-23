@@ -642,6 +642,27 @@ func seedDefaultSettings() error {
 			Description: "底栏毛玻璃颜色",
 			Category:    "appearance",
 		},
+		{
+			Key:         "floating_text_enabled",
+			Value:       "false",
+			Type:        "boolean",
+			Description: "是否启用飘字效果",
+			Category:    "appearance",
+		},
+		{
+			Key:         "floating_texts",
+			Value:       "[\"perfect\",\"good\",\"excellent\",\"extraordinary\",\"legend\"]",
+			Type:        "json",
+			Description: "飘字效果文本列表",
+			Category:    "appearance",
+		},
+		{
+			Key:         "mobile_background_image",
+			Value:       "/img/mobile-test.webp",
+			Type:        "string",
+			Description: "移动端背景图片",
+			Category:    "appearance",
+		},
 		// 默认模板设置
 		{
 			Key:         "template_name",

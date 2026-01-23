@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -58,4 +59,28 @@ func stringToInt(s string) int64 {
 		return i
 	}
 	return 0
+}
+
+// stringToStringArray 将JSON字符串转换为字符串数组
+func stringToStringArray(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	var result []string
+	if err := json.Unmarshal([]byte(s), &result); err != nil {
+		return []string{}
+	}
+	return result
+}
+
+// stringArrayToString 将字符串数组转换为JSON字符串
+func stringArrayToString(arr []string) string {
+	if arr == nil || len(arr) == 0 {
+		return "[]"
+	}
+	data, err := json.Marshal(arr)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
 }

@@ -290,15 +290,14 @@
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .shortcut-hint {
-    width: 16px;
-    height: 16px;
-    font-size: 9px;
+  /* 隐藏快捷键按钮 */
+  .shortcuts-help-btn {
+    display: none !important;
   }
 
-  .shortcuts-help-btn {
-    padding: 6px 12px;
-    font-size: 0.85em;
+  /* 隐藏快捷键提示 */
+  .shortcut-hint {
+    display: none !important;
   }
 
   .shortcuts-help-btn svg {

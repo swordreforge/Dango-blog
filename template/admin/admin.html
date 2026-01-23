@@ -2769,6 +2769,16 @@ input[type="range"]::-moz-range-thumb:hover {
   .am-batch-actions button {
     width: 100%;
   }
+
+  /* 隐藏快捷键按钮 */
+  .shortcuts-help-btn {
+    display: none !important;
+  }
+
+  /* 隐藏快捷键提示 */
+  .shortcut-hint {
+    display: none !important;
+  }
 }
 
 /* 管理员聚焦模式样式 */
@@ -3804,7 +3814,13 @@ body.admin-focus-mode .modal-header {
               <div class="form-group">
                 <label for="backgroundImage">背景图片路径</label>
                 <input type="text" id="backgroundImage" class="form-control" placeholder="/img/test.webp">
-                <p style="font-size: 0.85em; color: #666; margin-top: 5px;">支持相对路径或绝对URL</p>
+                <p style="font-size: 0.85em; color: #666; margin-top: 5px;">支持相对路径或绝对URL（桌面端）</p>
+              </div>
+
+              <div class="form-group">
+                <label for="mobileBackgroundImage">移动端背景图片路径</label>
+                <input type="text" id="mobileBackgroundImage" class="form-control" placeholder="/img/mobile-test.webp">
+                <p style="font-size: 0.85em; color: #666; margin-top: 5px;">移动端专用背景图片（留空则使用桌面端背景）</p>
               </div>
 
               <div class="form-group">
@@ -3926,6 +3942,20 @@ body.admin-focus-mode .modal-header {
                 <input type="text" id="footerGlassColor" class="form-control" placeholder="rgba(255, 255, 255, 0.9)">
               </div>
               <p style="font-size: 0.85em; color: #666; margin-top: 5px;">底栏背景毛玻璃效果颜色（支持 rgba 格式）</p>
+            </div>
+
+            <div class="form-group">
+              <label for="floatingTextEnabled">
+                <input type="checkbox" id="floatingTextEnabled" style="margin-right: 8px;">
+                启用飘字效果
+              </label>
+              <p style="font-size: 0.85em; color: #666; margin-top: 5px;">在文章页面显示飘动的文字效果</p>
+            </div>
+
+            <div class="form-group">
+              <label for="floatingTexts">飘字文本（用逗号分隔）</label>
+              <textarea id="floatingTexts" class="form-control" rows="3" placeholder="perfect, good, excellent, extraordinary, legend"></textarea>
+              <p style="font-size: 0.85em; color: #666; margin-top: 5px;">自定义飘字效果显示的文本，多个文本用逗号分隔</p>
             </div>
           </div>
 
@@ -8278,6 +8308,7 @@ async function loadSettings() {
 
       // 填充表单
       document.getElementById('backgroundImage').value = settings.background_image || '/img/test.webp';
+      document.getElementById('mobileBackgroundImage').value = settings.mobile_background_image || '/img/mobile-test.webp';
       document.getElementById('globalOpacity').value = settings.global_opacity || '0.15';
       document.getElementById('opacityValue').textContent = settings.global_opacity || '0.15';
       document.getElementById('backgroundSize').value = settings.background_size || 'cover';
@@ -8291,6 +8322,8 @@ async function loadSettings() {
       document.getElementById('navbarTextColor').value = settings.navbar_text_color || '#333333';
       document.getElementById('cardGlassColor').value = settings.card_glass_color || 'rgba(255, 255, 255, 0.75)';
       document.getElementById('footerGlassColor').value = settings.footer_glass_color || 'rgba(255, 255, 255, 0.9)';
+      document.getElementById('floatingTextEnabled').checked = settings.floating_text_enabled || false;
+      document.getElementById('floatingTexts').value = settings.floating_texts && Array.isArray(settings.floating_texts) ? settings.floating_texts.join(', ') : 'perfect, good, excellent, extraordinary, legend';
 
       // 更新颜色选择器
       updateColorPickers();
@@ -8325,6 +8358,7 @@ async function saveSettings() {
     // 获取当前表单值
     const currentSettings = {
       background_image: document.getElementById('backgroundImage').value,
+      mobile_background_image: document.getElementById('mobileBackgroundImage').value,
       global_opacity: document.getElementById('globalOpacity').value,
       background_size: document.getElementById('backgroundSize').value,
       background_position: document.getElementById('backgroundPosition').value,
@@ -8336,7 +8370,9 @@ async function saveSettings() {
       navbar_glass_color: document.getElementById('navbarGlassColor').value,
       navbar_text_color: document.getElementById('navbarTextColor').value,
       card_glass_color: document.getElementById('cardGlassColor').value,
-      footer_glass_color: document.getElementById('footerGlassColor').value
+      footer_glass_color: document.getElementById('footerGlassColor').value,
+      floating_text_enabled: document.getElementById('floatingTextEnabled').checked,
+      floating_texts: document.getElementById('floatingTexts').value.split(',').map(s => s.trim()).filter(s => s.length > 0)
     };
 
     // 只发送发生变化的字段
@@ -8415,6 +8451,8 @@ function resetSettings() {
     document.getElementById('navbarTextColor').value = '#333333';
     document.getElementById('cardGlassColor').value = 'rgba(255, 255, 255, 0.75)';
     document.getElementById('footerGlassColor').value = 'rgba(255, 255, 255, 0.9)';
+      document.getElementById('floatingTextEnabled').checked = false;
+      document.getElementById('floatingTexts').value = 'perfect, good, excellent, extraordinary, legend';
     updateColorPickers();
     applyDarkMode(false);
     applyGlassColors('rgba(255, 255, 255, 0.85)', 'rgba(255, 255, 255, 0.75)', 'rgba(255, 255, 255, 0.9)');
@@ -8428,6 +8466,7 @@ function updatePreview() {
   if (!previewBox) return;
 
   const backgroundImage = document.getElementById('backgroundImage').value;
+  const mobileBackgroundImage = document.getElementById('mobileBackgroundImage').value;
   const globalOpacity = document.getElementById('globalOpacity').value;
   const backgroundSize = document.getElementById('backgroundSize').value;
   const backgroundPosition = document.getElementById('backgroundPosition').value;
@@ -8436,8 +8475,12 @@ function updatePreview() {
   const blurAmount = document.getElementById('blurAmount').value;
   const saturateAmount = document.getElementById('saturateAmount').value;
 
+  // 响应式选择背景图片
+  const isMobile = window.innerWidth <= 768;
+  const currentBackgroundImage = isMobile && mobileBackgroundImage ? mobileBackgroundImage : backgroundImage;
+
   // 更新预览框的样式
-  previewBox.style.backgroundImage = `url('${backgroundImage}')`;
+  previewBox.style.backgroundImage = `url('${currentBackgroundImage}')`;
   previewBox.style.backgroundSize = backgroundSize;
   previewBox.style.backgroundPosition = backgroundPosition;
   previewBox.style.backgroundRepeat = backgroundRepeat;
@@ -8452,7 +8495,7 @@ function updatePreview() {
   const beforeElement = document.createElement('style');
   beforeElement.textContent = `
     #previewBox::before {
-      background-image: url('${backgroundImage}') !important;
+      background-image: url('${currentBackgroundImage}') !important;
       background-size: ${backgroundSize} !important;
       background-position: ${backgroundPosition} !important;
       background-repeat: ${backgroundRepeat} !important;
@@ -8664,7 +8707,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // 监听所有设置输入的变化，实时更新预览
   const settingInputs = [
-    'backgroundImage', 'backgroundSize', 'backgroundPosition',
+    'backgroundImage', 'mobileBackgroundImage', 'backgroundSize', 'backgroundPosition',
     'backgroundRepeat', 'backgroundAttachment', 'blurAmount', 'saturateAmount'
   ];
 
@@ -8675,6 +8718,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       input.addEventListener('change', updatePreview);
     }
   });
+
+  // 监听窗口大小变化，更新响应式背景图片
+  window.addEventListener('resize', updatePreview);
 
   // 当切换到设置标签页时加载设置
   const settingsTab = document.querySelector('[data-tab="settings"]');
@@ -11724,6 +11770,50 @@ document.addEventListener('DOMContentLoaded', () => {
   function init() {
     initEventListeners();
     loadAttachments();
+    loadAppearanceSettings();
+  }
+
+  // 加载外观设置并应用响应式背景图片
+  function loadAppearanceSettings() {
+    fetch('/api/settings/appearance')
+      .then(response => response.json())
+      .then(settings => {
+        // 保存到 localStorage 供其他组件使用
+        localStorage.setItem('appearanceSettings', JSON.stringify(settings));
+
+        if (settings.dark_mode_enabled) {
+          document.documentElement.classList.add('dark-mode');
+        }
+
+        // 应用毛玻璃颜色
+        if (settings.navbar_glass_color || settings.card_glass_color || settings.footer_glass_color) {
+          document.documentElement.style.setProperty('--navbar-glass-color', settings.navbar_glass_color || 'rgba(255, 255, 255, 0.85)');
+          document.documentElement.style.setProperty('--card-glass-color', settings.card_glass_color || 'rgba(255, 255, 255, 0.75)');
+          document.documentElement.style.setProperty('--footer-glass-color', settings.footer_glass_color || 'rgba(255, 255, 255, 0.9)');
+        }
+
+        // 响应式加载背景图片
+        function applyBackgroundImage() {
+          const isMobile = window.innerWidth <= 768;
+          const backgroundImage = isMobile && settings.mobile_background_image ? settings.mobile_background_image : settings.background_image;
+          if (backgroundImage) {
+            document.body.style.backgroundImage = `url('${backgroundImage}')`;
+            document.body.style.backgroundSize = settings.background_size || 'cover';
+            document.body.style.backgroundPosition = settings.background_position || 'center';
+            document.body.style.backgroundRepeat = settings.background_repeat || 'no-repeat';
+            document.body.style.backgroundAttachment = settings.background_attachment || 'fixed';
+          }
+        }
+
+        // 初始应用
+        applyBackgroundImage();
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', applyBackgroundImage);
+      })
+      .catch(error => {
+        console.error('加载外观设置失败:', error);
+      });
   }
 
   // 页面加载完成后初始化

@@ -12,6 +12,8 @@
 <link rel="stylesheet" href="/css/tokyo-night-dark.min.css">
 <!-- KaTeX CSS -->
 <link rel="stylesheet" href="/css/katex.min.css">
+<!-- 飘字效果 CSS -->
+<link rel="stylesheet" href="/css/floating-text.css">
 <!--script defer src="/js/katex@0.16.27/dist/katex.min.js" integrity="sha384-2B8pfmZZ6JlVoScJm/5hQfNS2TI/6hPqDZInzzPc8oHpN5SgeNOf4LzREO6p5YtZ" crossorigin="anonymous"-->
 <style>
 * {
@@ -1501,6 +1503,11 @@ body.fullscreen .content-area {
   .nav-left a span:not(.shortcut-hint),
   .nav-right button span:not(.shortcut-hint) {
     display: none;
+  }
+
+  /* 隐藏快捷键按钮 */
+  .shortcuts-help-btn {
+    display: none !important;
   }
 
   /* 隐藏快捷键提示 */
@@ -4323,6 +4330,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   fetch('/api/settings/appearance')
     .then(response => response.json())
     .then(settings => {
+      // 保存到 localStorage 供其他组件使用
+      localStorage.setItem('appearanceSettings', JSON.stringify(settings));
+
       // 只有当明确设置为 true 时才启用深色模式，否则默认关闭
       if (settings.dark_mode_enabled === true) {
         document.documentElement.classList.add('dark-mode');
@@ -4337,6 +4347,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.documentElement.style.setProperty('--card-glass-color', settings.card_glass_color || 'rgba(255, 255, 255, 0.75)');
         document.documentElement.style.setProperty('--footer-glass-color', settings.footer_glass_color || 'rgba(255, 255, 255, 0.9)');
       }
+
+      // 响应式加载背景图片
+      function applyBackgroundImage() {
+        const isMobile = window.innerWidth <= 768;
+        const backgroundImage = isMobile && settings.mobile_background_image ? settings.mobile_background_image : settings.background_image;
+        if (backgroundImage) {
+          document.body.style.backgroundImage = `url('${backgroundImage}')`;
+        }
+      }
+
+      // 初始应用
+      applyBackgroundImage();
+
+      // 监听窗口大小变化
+      window.addEventListener('resize', applyBackgroundImage);
     })
     .catch(error => {
       console.error('加载外观设置失败:', error);
@@ -5524,5 +5549,10 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+
+<!-- 飘字效果 JS -->
+{{if .Settings.FloatingTextEnabled}}
+<script src="/js/floating-text.js"></script>
+{{end}}
 </body>
 </html>

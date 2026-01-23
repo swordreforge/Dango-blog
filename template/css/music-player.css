@@ -447,47 +447,101 @@
 /* 响应式设计 */
 @media (max-width: 768px) {
   .music-player {
-    width: 100% !important;
-    max-width: 100vw;
+    width: calc(100% - 32px) !important;
+    max-width: calc(100vw - 32px);
+    margin: 0 16px;
+    border-radius: 12px;
   }
 
   .music-player.size-small,
   .music-player.size-medium,
   .music-player.size-large {
-    height: 50px;
-    width: 100%;
+    height: 88px;
+    width: calc(100% - 32px);
   }
 
   .music-player.position-top-left,
   .music-player.position-top-right {
-    top: 70px;
-    left: 0;
-    right: 0;
+    top: 80px;
+    left: 16px;
+    right: 16px;
   }
 
   .music-player.position-bottom-left,
   .music-player.position-bottom-right {
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: 30px;
+    left: 16px;
+    right: 16px;
   }
 
   .music-cover {
-    width: 50px;
-    height: 50px;
+    width: 88px;
+    height: 88px;
+    border-radius: 8px;
+  }
+
+  .music-middle {
+    padding: 8px 10px;
   }
 
   .music-info {
-    font-size: 12px;
+    font-size: 15px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .music-title {
+    font-size: 16px;
+  }
+
+  .music-artist {
+    font-size: 14px;
+  }
+
+  .music-controls {
+    gap: 6px;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
   }
 
   .music-controls button {
-    width: 24px;
-    height: 24px;
-    font-size: 11px;
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+    padding: 6px;
+    border-radius: 6px;
+  }
+
+  .music-controls button.play-btn {
+    width: 54px;
+    height: 54px;
+  }
+
+  .music-countdown {
+    font-size: 20px;
+    padding: 0 12px;
+    min-width: 70px;
   }
 
   .music-volume {
     display: none;
+  }
+
+  .music-playlist-btn {
+    padding: 6px 8px;
+  }
+
+  .music-playlist {
+    min-width: calc(100% - 24px);
+    max-height: 250px;
+  }
+
+  .music-playlist-item {
+    padding: 10px 12px;
+  }
+
+  .music-playlist-item-title {
+    font-size: 13px;
   }
 }

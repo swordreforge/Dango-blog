@@ -778,6 +778,11 @@ body.about-focus-mode .about-focus-selected {
     display: none;
   }
 
+  /* 隐藏快捷键按钮 */
+  .shortcuts-help-btn {
+    display: none !important;
+  }
+
   /* 隐藏快捷键提示 */
   .shortcut-hint {
     display: none !important;
@@ -827,6 +832,8 @@ body.about-focus-mode .about-focus-selected {
 
 <!-- 键盘快捷键样式 -->
 <link rel="stylesheet" href="/css/keyboard-shortcuts.css">
+<!-- 飘字效果样式 -->
+<link rel="stylesheet" href="/css/floating-text.css">
 </head>
 <body>
 <nav id="mainNav">
@@ -1519,6 +1526,9 @@ document.addEventListener('DOMContentLoaded', function() {
   fetch('/api/settings/appearance')
     .then(response => response.json())
     .then(settings => {
+      // 保存到 localStorage 供其他组件使用
+      localStorage.setItem('appearanceSettings', JSON.stringify(settings));
+
       if (settings.dark_mode_enabled) {
         document.documentElement.classList.add('dark-mode');
       }
@@ -1529,6 +1539,21 @@ document.addEventListener('DOMContentLoaded', function() {
         document.documentElement.style.setProperty('--card-glass-color', settings.card_glass_color || 'rgba(255, 255, 255, 0.75)');
         document.documentElement.style.setProperty('--footer-glass-color', settings.footer_glass_color || 'rgba(255, 255, 255, 0.9)');
       }
+
+      // 响应式加载背景图片
+      function applyBackgroundImage() {
+        const isMobile = window.innerWidth <= 768;
+        const backgroundImage = isMobile && settings.mobile_background_image ? settings.mobile_background_image : settings.background_image;
+        if (backgroundImage) {
+          document.body.style.backgroundImage = `url('${backgroundImage}')`;
+        }
+      }
+
+      // 初始应用
+      applyBackgroundImage();
+
+      // 监听窗口大小变化
+      window.addEventListener('resize', applyBackgroundImage);
     })
     .catch(error => {
       console.error('加载外观设置失败:', error);
@@ -1676,5 +1701,7 @@ window.addEventListener('focus', function() {
 <link rel="stylesheet" href="/css/music-player.css">
 <!-- 音乐播放器脚本 -->
 <script src="/js/music-player.js"></script>
+<!-- 飘字效果脚本 -->
+<script src="/js/floating-text.js"></script>
 </body>
 </html>
