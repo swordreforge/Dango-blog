@@ -753,6 +753,74 @@ body.about-focus-mode .about-focus-selected {
 .admin-only {
   display: none !important;
 }
+
+/* 移动端响应式导航栏 */
+@media (max-width: 768px) {
+  nav {
+    padding: 10px env(safe-area-inset-right) 10px env(safe-area-inset-left);
+  }
+
+  nav a, nav button {
+    font-size: 0;
+    margin: 0 4px;
+    padding: 10px;
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  /* 隐藏导航栏文字，只显示图标 */
+  nav a span:not(.shortcut-hint),
+  nav button span:not(.shortcut-hint) {
+    display: none;
+  }
+
+  /* 隐藏快捷键提示 */
+  .shortcut-hint {
+    display: none !important;
+  }
+
+  /* 确保图标可见 */
+  nav a svg,
+  nav button svg {
+    display: block;
+    font-size: initial;
+  }
+
+  /* 为没有图标的链接添加默认图标 */
+  nav a[href="/"]::before {
+    content: '🏠';
+    font-size: 18px;
+  }
+
+  nav a[href="/passage"]::before {
+    content: '📝';
+    font-size: 18px;
+  }
+
+  nav a[href="/collect"]::before {
+    content: '📁';
+    font-size: 18px;
+  }
+
+  nav a[href="/about"]::before {
+    content: 'ℹ️';
+    font-size: 18px;
+  }
+
+  nav a[href="/markdown-editor"]::before {
+    content: '✏️';
+    font-size: 18px;
+  }
+
+  nav a[href="/admin"]::before {
+    content: '⚙️';
+    font-size: 18px;
+  }
+}
 </style>
 <!-- 模态框动画样式 -->
 <link rel="stylesheet" href="/css/modal-animations.css">

@@ -97,13 +97,13 @@ nav a {
 
 /* 个人中心样式 */
 #userCenterToggle {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 8px;
   color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
-  margin-left: env(safe-area-inset-left);
-  margin-right: 15px;
+  margin: 0 15px;
+  
   font-weight: 500;
   transition: all 0.3s ease;
   position: relative;
@@ -217,7 +217,7 @@ nav a {
 
 /* 个人中心下拉菜单 */
 #userCenter {
-  display: none;
+  display: flex;
   position: fixed;
   top: calc(env(safe-area-inset-top) + 70px);
   left: 20px;
@@ -535,6 +535,86 @@ footer {
 .admin-only {
   display: none !important;
 }
+
+/* 移动端响应式导航栏 */
+@media (max-width: 768px) {
+  nav {
+    padding: 10px env(safe-area-inset-right) 10px env(safe-area-inset-left);
+  }
+
+  nav a, nav button {
+    font-size: 0;
+    margin: 0 4px;
+    padding: 10px;
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  /* 隐藏导航栏文字，只显示图标 */
+  nav a span:not(.shortcut-hint),
+  nav button span:not(.shortcut-hint),
+  #loginBtn span:not(:has(svg)) {
+    display: flex;
+  }
+
+  /* 隐藏快捷键提示 */
+  .shortcut-hint {
+    display: none !important;
+  }
+
+  /* 确保图标可见 */
+  nav a svg,
+  nav button svg {
+    display: block;
+    font-size: initial;
+  }
+
+  /* 为没有图标的链接添加默认图标 */
+  nav a[href="/"]::before {
+    content: '🏠';
+    font-size: 18px;
+  }
+
+  nav a[href="/passage"]::before {
+    content: '📝';
+    font-size: 18px;
+  }
+
+  nav a[href="/collect"]::before {
+    content: '📁';
+    font-size: 18px;
+  }
+
+  nav a[href="/about"]::before {
+    content: 'ℹ️';
+    font-size: 18px;
+  }
+
+  nav a[href="/markdown-editor"]::before {
+    content: '✏️';
+    font-size: 18px;
+  }
+
+  nav a[href="/admin"]::before {
+    content: '⚙️';
+    font-size: 18px;
+  }
+
+  #userCenterToggle::before {
+    content: '👤';
+    font-size: 18px;
+  }
+
+  /* 登录按钮图标 */
+  #loginBtn svg {
+    width: 20px;
+    height: 20px;
+  }
+}
 </style>
 <!-- 模态框动画样式 -->
 <link rel="stylesheet" href="/css/modal-animations.css">
@@ -632,7 +712,7 @@ footer {
           <label for="loginPassword">密码</label>
           <input type="password" id="loginPassword" class="form-control" placeholder="请输入密码" required autocomplete="current-password">
         </div>
-        <div class="form-group" id="loginError" style="display: none; color: #e74c3c; font-size: 0.9em;"></div>
+        <div class="form-group" id="loginError" style="display: flex; color: #e74c3c; font-size: 0.9em;"></div>
         <button type="submit" id="loginSubmitBtn" class="btn-primary" style="width: 100%;">登录</button>
       </form>
       <div style="margin-top: 20px; text-align: center; font-size: 0.9em;">
@@ -663,7 +743,7 @@ footer {
           <label for="registerPassword">密码</label>
           <input type="password" id="registerPassword" class="form-control" placeholder="请输入密码（至少6个字符）" required autocomplete="new-password">
         </div>
-        <div class="form-group" id="registerError" style="display: none; color: #e74c3c; font-size: 0.9em;"></div>
+        <div class="form-group" id="registerError" style="display: flex; color: #e74c3c; font-size: 0.9em;"></div>
         <button type="submit" id="registerSubmitBtn" class="btn-primary" style="width: 100%;">注册</button>
       </form>
       <div style="margin-top: 20px; text-align: center; font-size: 0.9em;">
@@ -699,7 +779,7 @@ footer {
 <!-- 模态框样式 -->
 <style>
 .modal {
-  display: none;
+  display: flex;
   position: fixed;
   top: 0;
   left: 0;

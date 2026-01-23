@@ -71,14 +71,14 @@ func (s *UserService) Register(req *dto.RegisterRequest) (*dto.RegisterResponse,
 		return nil, dto.ErrUsernameExists
 	}
 
-	// TODO: 检查邮箱是否已存在（需要在 UserRepository 中添加 GetByEmail 方法）
-	// existingUser, err = s.userRepo.GetByEmail(req.Email)
-	// if err != nil {
-	//     return nil, fmt.Errorf("数据库查询失败: %w", err)
-	// }
-	// if existingUser != nil {
-	//     return nil, dto.ErrEmailExists
-	// }
+	// 检查邮箱是否已存在
+	existingUser, err = s.userRepo.GetByEmail(req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("数据库查询失败: %w", err)
+	}
+	if existingUser != nil {
+		return nil, dto.ErrEmailExists
+	}
 
 	// 哈希密码
 	hashedPassword, err := auth.HashPassword(password)
@@ -224,11 +224,11 @@ func (s *UserService) UpdateUser(id int, req *dto.UpdateUserRequest) (*dto.UserD
 			return nil, err
 		}
 
-		// TODO: 检查邮箱是否已存在（需要在 UserRepository 中添加 GetByEmail 方法）
-		// userWithSameEmail, err := s.userRepo.GetByEmail(req.Email)
-		// if err == nil && userWithSameEmail != nil && userWithSameEmail.ID != id {
-		//     return nil, dto.ErrEmailExists
-		// }
+		// 检查邮箱是否已被其他用户使用
+		userWithSameEmail, err := s.userRepo.GetByEmail(req.Email)
+		if err == nil && userWithSameEmail != nil && userWithSameEmail.ID != id {
+			return nil, dto.ErrEmailExists
+		}
 
 		existingUser.Email = req.Email
 	}
@@ -291,16 +291,58 @@ func (s *UserService) DeleteUser(id int) error {
 
 // ListUsers 获取用户列表
 func (s *UserService) ListUsers(req *dto.UserListRequest) (*dto.PaginationResponse, error) {
-	// TODO: 需要在 UserRepository 中添加 List 方法
-	// 暂时返回空列表
+	// 设置默认值
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
+	}
+
+	// 计算偏移量
+	offset := (req.Page - 1) * req.PageSize
+
+	// 获取用户列表
+	users, err := s.userRepo.GetAll(req.PageSize, offset)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户列表失败: %w", err)
+	}
+
+	// 获取总数
+	total, err := s.userRepo.Count()
+	if err != nil {
+		return nil, fmt.Errorf("获取用户总数失败: %w", err)
+	}
+
+	// 转换为 DTO
+	userDTOs := make([]*dto.UserDTO, 0, len(users))
+	for _, user := range users {
+		userDTOs = append(userDTOs, &dto.UserDTO{
+			ID:        user.ID,
+			Username:  user.Username,
+			Email:     user.Email,
+			Role:      user.Role,
+			Status:    user.Status,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		})
+	}
+
+	// 计算总页数
+	totalPages := int(total) / req.PageSize
+	if int(total)%req.PageSize != 0 {
+		totalPages++
+	}
+
+	// 构建分页响应
 	return &dto.PaginationResponse{
-		Total:       0,
+		Total:       int64(total),
 		Page:        req.Page,
 		PageSize:    req.PageSize,
-		TotalPages:  0,
-		HasNext:     false,
-		HasPrevious: false,
-		Data:        []*dto.UserDTO{},
+		TotalPages:  totalPages,
+		HasNext:     req.Page < totalPages,
+		HasPrevious: req.Page > 1,
+		Data:        userDTOs,
 	}, nil
 }
 
@@ -327,7 +369,10 @@ func (s *UserService) UsernameExists(username string) (bool, error) {
 }
 
 // EmailExists 检查邮箱是否存在
-// TODO: 需要在 UserRepository 中添加 GetByEmail 方法
 func (s *UserService) EmailExists(email string) (bool, error) {
-	return false, nil
+	user, err := s.userRepo.GetByEmail(email)
+	if err != nil {
+		return false, fmt.Errorf("检查邮箱是否存在失败: %w", err)
+	}
+	return user != nil, nil
 }

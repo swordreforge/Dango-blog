@@ -70,7 +70,7 @@ nav {
   justify-content: space-between;
   align-items: center;
   height: var(--header-height);
-  padding: 0 20px;
+  padding: 0 5px;
   background: var(--navbar-glass-color, rgba(255, 255, 255, 0.85));
   backdrop-filter: blur(10px) saturate(180%);
   -webkit-backdrop-filter: blur(10px) saturate(180%);
@@ -86,10 +86,16 @@ nav {
 .nav-left, .nav-right {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 4px;
 }
 
 /* 导航栏隐藏状态 - 已改用内联样式 display: none 控制 */
+
+/* 隐藏关于按键和管理员面板按键 */
+.nav-left a[href="/about"],
+.nav-left a[href="/admin"] {
+  display: none;
+}
 
 nav a {
   color: rgba(255, 255, 255, 0.9);
@@ -97,7 +103,7 @@ nav a {
   font-weight: 500;
   transition: all 0.3s ease;
   position: relative;
-  padding: 8px 16px;
+  padding: 4px 8px;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(30px) saturate(200%);
   -webkit-backdrop-filter: blur(30px) saturate(200%);
@@ -1472,7 +1478,293 @@ body.fullscreen .content-area {
     max-width: 150px;
     padding: 0 15px;
   }
-  
+
+  /* 移动端导航栏图标化处理 */
+  nav {
+    padding: 10px 15px;
+  }
+
+  .nav-left a,
+  .nav-right button {
+    font-size: 0;
+    margin: 0 4px;
+    padding: 10px;
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  /* 隐藏导航栏文字，只显示图标 */
+  .nav-left a span:not(.shortcut-hint),
+  .nav-right button span:not(.shortcut-hint) {
+    display: none;
+  }
+
+  /* 隐藏快捷键提示 */
+  .shortcut-hint {
+    display: none !important;
+  }
+
+  /* 确保图标可见 */
+  .nav-left a svg,
+  .nav-right button svg {
+    display: block;
+    font-size: initial;
+  }
+
+  /* 为没有图标的链接添加默认图标 */
+  .nav-left a[href="/"]::before {
+    content: '🏠';
+    font-size: 18px;
+  }
+
+  .nav-left a[href="/passage"]::before {
+    content: '📝';
+    font-size: 18px;
+  }
+
+  .nav-left a[href="/collect"]::before {
+    content: '📁';
+    font-size: 18px;
+  }
+
+  .nav-left a[href="/about"]::before {
+    content: 'ℹ️';
+    font-size: 18px;
+  }
+
+  .nav-left a[href="/markdown-editor"]::before {
+    content: '✏️';
+    font-size: 18px;
+  }
+
+  .nav-left a[href="/admin"]::before {
+    content: '⚙️';
+    font-size: 18px;
+  }
+
+  /* 侧边栏切换按钮样式调整 */
+  .sidebar-toggle {
+    padding: 10px;
+    min-width: 40px;
+    height: 40px;
+    border-radius: 50%;
+  }
+
+  .sidebar-toggle svg {
+    display: block;
+  }
+
+  /* 移动端隐藏侧边栏切换按钮 */
+  .sidebar-toggle {
+    display: none !important;
+  }
+
+  /* 移动端显示文章筛选按钮 */
+  #articleFilterToggle {
+    display: flex !important;
+  }
+
+  /* 文章筛选模态框特殊样式 */
+  .article-filter-modal .modal-content {
+    background: rgba(30, 30, 35, 0.98);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    /* 向右下角移动 */
+    transform: translate(30px, 30px);
+  }
+
+  .article-filter-modal.active .modal-content {
+    transform: translate(30px, 30px);
+  }
+
+  .article-filter-modal .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .article-filter-modal .filter-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+
+  .article-filter-modal .filter-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #aaa;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .article-filter-modal .filter-tab.active {
+    background: rgba(89, 89, 156, 0.5);
+    border-color: rgba(89, 89, 156, 0.8);
+    color: #fff;
+  }
+
+  .article-filter-modal .filter-tab svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .article-filter-modal .filter-search {
+    margin-bottom: 15px;
+  }
+
+  .article-filter-modal .filter-search input {
+    width: 100%;
+    padding: 10px 15px;
+    background: rgba(50, 50, 55, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #f0f0f0;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .article-filter-modal .filter-search input:focus {
+    border-color: rgba(89, 89, 156, 0.8);
+    background: rgba(60, 60, 65, 0.9);
+  }
+
+  .article-filter-modal .filter-search input::placeholder {
+    color: #666;
+  }
+
+  .article-filter-modal .filter-content {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .article-filter-modal .filter-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .article-filter-modal .filter-content::-webkit-scrollbar-track {
+    background: rgba(50, 50, 55, 0.5);
+    border-radius: 3px;
+  }
+
+  .article-filter-modal .filter-content::-webkit-scrollbar-thumb {
+    background: rgba(89, 89, 156, 0.5);
+    border-radius: 3px;
+  }
+
+  .article-filter-modal .filter-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(89, 89, 156, 0.7);
+  }
+
+  /* 文章列表项样式 */
+  .article-filter-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .article-filter-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+  }
+
+  .article-filter-item.active {
+    background: rgba(89, 89, 156, 0.3);
+    border-color: rgba(89, 89, 156, 0.6);
+  }
+
+  .article-filter-item-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(89, 89, 156, 0.3);
+    border-radius: 6px;
+    margin-right: 12px;
+    font-size: 16px;
+  }
+
+  .article-filter-item-info {
+    flex: 1;
+  }
+
+  .article-filter-item-title {
+    color: #f0f0f0;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .article-filter-item-meta {
+    color: #888;
+    font-size: 12px;
+  }
+
+  /* 空状态 */
+  .filter-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-size: 14px;
+  }
+
+  /* 遮罩层 */
+  .modal-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+/* 默认隐藏文章筛选按钮 */
+#articleFilterToggle {
+  display: none;
+}
+
+/* 模态框默认隐藏 */
+.article-filter-modal,
+.modal-overlay {
+  display: none;
+}
+
+/* 模态框激活时显示 */
+.article-filter-modal.active,
+.modal-overlay.active {
+  display: flex;
+}
+  }
+
   .tab .tab-title {
     font-size: 0.9em;
   }
@@ -1907,6 +2199,12 @@ body.focus-mode-right .sidebar {
 
 <nav>
   <div class="nav-left">
+    <button id="articleFilterToggle" style="display: none; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 8px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(30px) saturate(200%); -webkit-backdrop-filter: blur(30px) saturate(200%); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; cursor: pointer; transition: all 0.3s ease; color: rgba(255, 255, 255, 0.9); margin-right: 4px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+    </button>
     <button id="sidebarToggle" class="sidebar-toggle">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -1939,6 +2237,49 @@ body.focus-mode-right .sidebar {
     </button>
   </div>
 </nav>
+
+<!-- 文章筛选模态框 -->
+<div class="modal article-filter-modal" id="articleFilterModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>文章索引</h3>
+      <button class="modal-close" data-modal="articleFilterModal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-mode="timestamp">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        文章索引
+      </button>
+      <button class="filter-tab" data-mode="outline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        本文目录
+      </button>
+    </div>
+    <div class="filter-search">
+      <input type="text" id="articleFilterSearch" placeholder="搜索文章..." />
+    </div>
+    <div class="filter-content" id="filterContent">
+      <!-- 文章列表将在这里动态生成 -->
+    </div>
+  </div>
+  </div>
+</div>
 
 <div class="main-container">
   <!-- 左侧文件树 -->
@@ -4913,5 +5254,275 @@ document.addEventListener('DOMContentLoaded', function() {
 <link rel="stylesheet" href="/css/music-player.css">
 <!-- 音乐播放器脚本 -->
 <script src="/js/music-player.js"></script>
+<script>
+// 文章筛选模态框功能
+document.addEventListener('DOMContentLoaded', function() {
+  const articleFilterToggle = document.getElementById('articleFilterToggle');
+  const articleFilterModal = document.getElementById('articleFilterModal');
+  const filterTabs = document.querySelectorAll('.filter-tab');
+  const filterSearch = document.getElementById('articleFilterSearch');
+  const filterContent = document.getElementById('filterContent');
+
+  let currentMode = 'timestamp';
+
+  // 打开/关闭模态框
+  if (articleFilterToggle) {
+    articleFilterToggle.addEventListener('click', function() {
+      articleFilterModal.classList.add('active');
+      loadFilterContent();
+    });
+  }
+
+  // 关闭模态框 - 使用标准模态框关闭函数
+  function closeModal() {
+    closeModalWithAnimation(articleFilterModal);
+  }
+
+  // 点击模态框内容区域不关闭
+  const modalContent = articleFilterModal ? articleFilterModal.querySelector('.modal-content') : null;
+  if (modalContent) {
+    modalContent.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  }
+
+  // 点击模态框外部关闭
+  if (articleFilterModal) {
+    articleFilterModal.addEventListener('click', closeModal);
+  }
+
+  // 切换模式
+  filterTabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      filterTabs.forEach(function(t) {
+        t.classList.remove('active');
+      });
+      this.classList.add('active');
+      currentMode = this.dataset.mode;
+      loadFilterContent();
+    });
+  });
+  
+  // 搜索功能
+  if (filterSearch) {
+    filterSearch.addEventListener('input', function() {
+      loadFilterContent(this.value);
+    });
+  }
+  
+  // 加载筛选内容
+  function loadFilterContent(searchTerm = '') {
+    if (!filterContent) return;
+    
+    filterContent.innerHTML = '';
+    
+    if (currentMode === 'timestamp') {
+      // 加载文章索引（时间戳模式）
+      loadArticleIndex(searchTerm);
+    } else {
+      // 加载本文目录
+      loadArticleOutline(searchTerm);
+    }
+  }
+  
+  // 加载文章索引
+  function loadArticleIndex(searchTerm = '') {
+    if (!articlesData || !articlesData.folders || articlesData.folders.length === 0) {
+      filterContent.innerHTML = '<div class="filter-empty">暂无文章数据</div>';
+      return;
+    }
+
+    // 递归收集所有文章
+    const allArticles = [];
+    function collectArticlesFromFolder(folder) {
+      if (folder.files) {
+        folder.files.forEach(file => {
+          allArticles.push(file);
+        });
+      }
+      if (folder.subfolders) {
+        folder.subfolders.forEach(subfolder => {
+          collectArticlesFromFolder(subfolder);
+        });
+      }
+    }
+
+    articlesData.folders.forEach(folder => {
+      collectArticlesFromFolder(folder);
+    });
+
+    // 搜索过滤
+    const filteredArticles = allArticles.filter(function(article) {
+      if (!searchTerm) return true;
+      return article.title.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+
+    if (filteredArticles.length === 0) {
+      filterContent.innerHTML = '<div class="filter-empty">没有找到匹配的文章</div>';
+      return;
+    }
+
+    // 按日期排序（最新的在前）
+    filteredArticles.sort(function(a, b) {
+      return new Date(b.date) - new Date(a.date);
+    });
+
+    filteredArticles.forEach(function(article) {
+      const item = createArticleItem(article);
+      filterContent.appendChild(item);
+    });
+  }
+  
+  // 加载文章目录
+  function loadArticleOutline(searchTerm = '') {
+    // 获取当前活动文章的内容区域
+    const activeArticle = document.querySelector('.article.active .article-content');
+
+    if (!activeArticle) {
+      filterContent.innerHTML = '<div class="filter-empty">请先选择一篇文章</div>';
+      return;
+    }
+
+    // 提取所有h1-h6标题
+    const headings = activeArticle.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
+    if (headings.length === 0) {
+      filterContent.innerHTML = '<div class="filter-empty">本文暂无目录</div>';
+      return;
+    }
+
+    // 为标题添加ID（如果没有）
+    headings.forEach((heading, index) => {
+      if (!heading.id) {
+        heading.id = `heading-${index}`;
+      }
+    });
+
+    // 搜索过滤
+    let filteredHeadings = Array.from(headings);
+
+    if (searchTerm) {
+      filteredHeadings = filteredHeadings.filter(function(heading) {
+        return heading.textContent.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+    }
+
+    if (filteredHeadings.length === 0) {
+      filterContent.innerHTML = '<div class="filter-empty">没有找到匹配的目录项</div>';
+      return;
+    }
+
+    // 生成目录项
+    filteredHeadings.forEach(function(heading) {
+      const item = createOutlineItem(heading);
+      filterContent.appendChild(item);
+    });
+  }
+  
+  // 创建文章项
+  function createArticleItem(article) {
+    const item = document.createElement('div');
+    item.className = 'article-filter-item';
+
+    // 根据文章状态设置图标
+    const icon = document.createElement('div');
+    icon.className = 'article-filter-item-icon';
+    if (article.status !== 'published') {
+      icon.textContent = '🔒';
+      icon.title = article.status === 'draft' ? '草稿' : article.status === 'pending' ? '待审核' : '定时发布';
+    } else {
+      icon.textContent = '📄';
+    }
+
+    const info = document.createElement('div');
+    info.className = 'article-filter-item-info';
+
+    const title = document.createElement('div');
+    title.className = 'article-filter-item-title';
+    title.textContent = article.title;
+
+    const meta = document.createElement('div');
+    meta.className = 'article-filter-item-meta';
+    meta.textContent = formatDate(article.date);
+
+    info.appendChild(title);
+    info.appendChild(meta);
+
+    item.appendChild(icon);
+    item.appendChild(info);
+
+    item.addEventListener('click', function() {
+      // 使用 markdownPath 构建跳转链接
+      if (article.markdownPath) {
+        window.location.href = `/passage/${article.markdownPath}`;
+      } else {
+        // 如果没有 markdownPath，尝试从日期和标题构建
+        const date = new Date(article.date);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const sanitizedTitle = article.title.toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[\/\?#\[\]@!$&'()*+,;=]/g, '')
+          .replace(/-+/g, '-');
+        window.location.href = `/passage/${year}/${month}/${day}/${sanitizedTitle}`;
+      }
+      closeModal();
+    });
+
+    return item;
+  }
+  
+  // 创建目录项
+  function createOutlineItem(heading) {
+    const item = document.createElement('div');
+    item.className = 'article-filter-item';
+
+    const icon = document.createElement('div');
+    icon.className = 'article-filter-item-icon';
+
+    // 根据标题级别设置不同的图标
+    const level = parseInt(heading.tagName.substring(1));
+    const icons = ['📌', '📎', '📍', '🔖', '🏷️', '📝'];
+    icon.textContent = icons[level - 1] || '📌';
+
+    const info = document.createElement('div');
+    info.className = 'article-filter-item-info';
+
+    const title = document.createElement('div');
+    title.className = 'article-filter-item-title';
+    title.textContent = heading.textContent.trim();
+
+    // 显示标题级别
+    const meta = document.createElement('div');
+    meta.className = 'article-filter-item-meta';
+    meta.textContent = `H${level}`;
+
+    info.appendChild(title);
+    info.appendChild(meta);
+
+    item.appendChild(icon);
+    item.appendChild(info);
+
+    item.addEventListener('click', function() {
+      // 平滑滚动到目标位置
+      heading.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+      closeModal();
+    });
+
+    return item;
+  }
+  
+  // 格式化日期
+  function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-CN');
+  }
+});
+</script>
 </body>
 </html>

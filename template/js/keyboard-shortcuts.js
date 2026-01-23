@@ -252,6 +252,12 @@ class KeyboardShortcuts {
   }
 
   showShortcutHints() {
+    // 检测移动端，如果是移动端则不显示快捷键提示
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    if (isMobile) {
+      return; // 移动端不显示快捷键提示
+    }
+
     // 为导航链接添加快捷键提示
     const navLinks = document.querySelectorAll('nav a, nav button');
     

@@ -13,6 +13,7 @@ type UserRepository interface {
 	Create(user *models.User) error
 	GetByID(id int) (*models.User, error)
 	GetByUsername(username string) (*models.User, error)
+	GetByEmail(email string) (*models.User, error)
 	GetAll(limit, offset int) ([]models.User, error)
 	Update(user *models.User) error
 	UpdatePartial(id int, updates map[string]interface{}) error
@@ -83,6 +84,26 @@ func (r *SQLiteUserRepository) GetByUsername(username string) (*models.User, err
 
 	user := &models.User{}
 	err := r.db.QueryRow(query, username).Scan(
+		&user.ID, &user.Username, &user.Password, &user.Email,
+		&user.Role, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (r *SQLiteUserRepository) GetByEmail(email string) (*models.User, error) {
+	query := `SELECT id, username, password, email, role, status, created_at, updated_at
+	          FROM users WHERE email = ?`
+
+	user := &models.User{}
+	err := r.db.QueryRow(query, email).Scan(
 		&user.ID, &user.Username, &user.Password, &user.Email,
 		&user.Role, &user.Status, &user.CreatedAt, &user.UpdatedAt,
 	)

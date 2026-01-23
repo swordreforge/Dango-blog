@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"myblog-gogogo/db/models"
 	"myblog-gogogo/db/repositories"
 )
@@ -50,13 +51,12 @@ func (s *SyncService) SyncFile(filePath string) error {
 	}
 
 	// 从文件路径提取信息
-	// 获取程序所在目录
-	execPath, err := os.Executable()
+	// 获取当前工作目录
+	workingDir, err := os.Getwd()
 	if err != nil {
-		execPath = "."
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
-	execDir := filepath.Dir(execPath)
-	markdownDir := filepath.Join(execDir, "markdown")
+	markdownDir := filepath.Join(workingDir, "markdown")
 	relativePath := strings.TrimPrefix(filePath, markdownDir+string(filepath.Separator))
 	relativePath = strings.TrimSuffix(relativePath, ".md")
 
@@ -266,7 +266,128 @@ func sanitizeTitle(title string) string {
 
 // WatchAndSync 监控文件变化并自动同步
 func (s *SyncService) WatchAndSync() error {
-	// TODO: 实现文件监控功能
-	// 可以使用 fsnotify 库来监控文件系统变化
+	// 获取当前工作目录
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	markdownDir := filepath.Join(workingDir, "markdown")
+
+	// 检查 markdown 目录是否存在
+	if _, err := os.Stat(markdownDir); os.IsNotExist(err) {
+		return fmt.Errorf("markdown directory does not exist: %s", markdownDir)
+	}
+
+	// 创建文件系统监控器
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	// 递归添加 markdown 目录到监控
+	if err := s.addWatchRecursive(watcher, markdownDir); err != nil {
+		return fmt.Errorf("failed to add watch: %w", err)
+	}
+
+	fmt.Printf("Watching markdown directory: %s\n", markdownDir)
+
+	// 开始监控
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return nil
+			}
+
+			// 只处理 .md 文件
+			if filepath.Ext(event.Name) != ".md" {
+				continue
+			}
+
+			// 处理不同的事件类型
+			switch {
+			case event.Op&fsnotify.Create == fsnotify.Create:
+				fmt.Printf("File created: %s\n", event.Name)
+				// 等待一小段时间，确保文件写入完成
+				time.Sleep(100 * time.Millisecond)
+				if err := s.SyncFile(event.Name); err != nil {
+					fmt.Printf("Failed to sync created file: %v\n", err)
+				}
+
+			case event.Op&fsnotify.Write == fsnotify.Write:
+				fmt.Printf("File modified: %s\n", event.Name)
+				// 等待一小段时间，确保文件写入完成
+				time.Sleep(100 * time.Millisecond)
+				if err := s.SyncFile(event.Name); err != nil {
+					fmt.Printf("Failed to sync modified file: %v\n", err)
+				}
+
+			case event.Op&fsnotify.Remove == fsnotify.Remove,
+				event.Op&fsnotify.Rename == fsnotify.Rename:
+				fmt.Printf("File removed/renamed: %s\n", event.Name)
+				if err := s.removePassageByFilePath(event.Name); err != nil {
+					fmt.Printf("Failed to remove passage: %v\n", err)
+				}
+			}
+
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return nil
+			}
+			fmt.Printf("Watcher error: %v\n", err)
+		}
+	}
+}
+
+// addWatchRecursive 递归添加目录到监控
+func (s *SyncService) addWatchRecursive(watcher *fsnotify.Watcher, dir string) error {
+	// 添加当前目录
+	if err := watcher.Add(dir); err != nil {
+		return err
+	}
+
+	// 遍历子目录
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// 如果是目录，添加到监控
+		if info.IsDir() && path != dir {
+			if err := watcher.Add(path); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+// removePassageByFilePath 通过文件路径删除文章
+func (s *SyncService) removePassageByFilePath(filePath string) error {
+	// 获取当前工作目录
+	workingDir, err := os.Getwd()
+	if err != nil {
+		workingDir = "."
+	}
+	markdownDir := filepath.Join(workingDir, "markdown")
+	relativePath := strings.TrimPrefix(filePath, markdownDir+string(filepath.Separator))
+	relativePath = strings.TrimSuffix(relativePath, ".md")
+
+	// 查找文章
+	existingPassage, err := s.findPassageByFilePath(relativePath)
+	if err != nil {
+		return err
+	}
+
+	if existingPassage != nil {
+		// 删除文章
+		if err := s.repo.Delete(existingPassage.ID); err != nil {
+			return fmt.Errorf("failed to delete passage: %w", err)
+		}
+		fmt.Printf("Deleted passage: %s (from %s)\n", existingPassage.Title, relativePath)
+	}
+
 	return nil
 }

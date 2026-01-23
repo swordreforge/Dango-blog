@@ -8,6 +8,7 @@ import (
 	"myblog-gogogo/auth"
 	"myblog-gogogo/db"
 	"myblog-gogogo/db/models"
+	"myblog-gogogo/service"
 )
 
 // AdminUsersHandler 用户管理API处理器
@@ -402,6 +403,87 @@ func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(response)
 				return
 			}
+		}
+
+		// 处理密码字段
+		shouldUpdatePassword := false
+		var password string
+
+		// 检查是否使用加密密码
+		if encryptedPassword, ok := updates["encrypted_password"].(string); ok && encryptedPassword != "" {
+			sessionID, hasSessionID := updates["session_id"].(string)
+			clientPublicKey, hasClientPubKey := updates["client_public_key"].(string)
+			_, hasAlgorithm := updates["algorithm"].(string)
+
+			if !hasSessionID || !hasClientPubKey || !hasAlgorithm {
+				response := map[string]interface{}{
+					"success": false,
+					"message": "加密密码缺少必要参数",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+
+			// 使用 AuthService 解密密码
+			authSvc := service.NewAuthService()
+			ecc, decryptErr := authSvc.GetECCSession(sessionID)
+			if decryptErr != nil {
+				response := map[string]interface{}{
+					"success": false,
+					"message": "获取加密会话失败",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+
+			decrypted, decryptErr := ecc.HybridDecrypt(encryptedPassword, clientPublicKey)
+			if decryptErr != nil {
+				response := map[string]interface{}{
+					"success": false,
+					"message": "密码解密失败",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+			password = string(decrypted)
+			shouldUpdatePassword = true
+
+			// 移除加密相关字段
+			delete(updates, "encrypted_password")
+			delete(updates, "session_id")
+			delete(updates, "client_public_key")
+			delete(updates, "algorithm")
+		} else if plaintextPassword, ok := updates["password"].(string); ok {
+			if plaintextPassword != "" {
+				// 如果密码不为空，需要更新密码
+				password = plaintextPassword
+				shouldUpdatePassword = true
+			} else {
+				// 如果密码为空，移除该字段，保持原密码不变
+				delete(updates, "password")
+			}
+		}
+
+		// 如果需要更新密码，进行 Argon2id 哈希处理
+		if shouldUpdatePassword {
+			hashedPassword, hashErr := auth.HashPassword(password)
+			if hashErr != nil {
+				response := map[string]interface{}{
+					"success": false,
+					"message": "密码哈希失败",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(response)
+				return
+			}
+			updates["password"] = hashedPassword
 		}
 
 		// 增量更新用户

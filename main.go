@@ -191,6 +191,17 @@ func main() {
 		}
 	}()
 	beautify.SuccessLeaf("会话清理任务已启动（每 5 分钟）")
+
+	// 启动文件监控
+	beautify.Branch("文件监控")
+	repo := db.GetPassageRepository()
+	syncService := service.NewSyncService(repo)
+	go func() {
+		if err := syncService.WatchAndSync(); err != nil {
+			beautify.Errorf("文件监控错误: %v", err)
+		}
+	}()
+	beautify.SuccessLeaf("文件监控已启动")
 	beautify.Outdent()
 
 	// 设置路由
