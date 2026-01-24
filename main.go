@@ -52,7 +52,7 @@ func main() {
 	cfg := config.Load()
 
 	// 显示启动标题
-	beautify.Header("MyBlog-Gogogo 服务启动")
+	beautify.Header("Dango 服务启动")
 
 	// 加载配置
 	beautify.Section("配置加载")
