@@ -1,3 +1,4 @@
+<img width="2508" height="1672" alt="1769270281843" src="https://github.com/user-attachments/assets/9e110ef7-b84e-41a7-b131-5eb460a82689" />
 # Dango：轻量级,去插件化,键盘友好的动态博客
 # 帮助文档
 # 一.简介
