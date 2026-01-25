@@ -99,12 +99,14 @@ func GetTemplate() (*TemplateSettings, error) {
 		"attachment_default_visibility", "attachment_max_size", "attachment_allowed_types",
 	}
 
-	for _, key := range keys {
-		setting, err := repo.GetByKey(key)
-		if err != nil {
-			log.Printf("Failed to get setting %s: %v", key, err)
-			continue
-		}
+	// 使用批量查询
+	settingsMap, err := repo.GetByKeys(keys)
+	if err != nil {
+		log.Printf("Failed to get template settings: %v", err)
+		return &settings, nil
+	}
+
+	for key, setting := range settingsMap {
 		if setting != nil {
 			switch key {
 			case "template_name":

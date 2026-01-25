@@ -4,7 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"myblog-gogogo/pkg/beautify"
+	"myblog-gogogo/pkg/logger"
+	"myblog-gogogo/pkg/metrics"
 )
 
 // responseWriter 包装 http.ResponseWriter 以捕获状态码
@@ -35,13 +36,26 @@ func Logging(next http.Handler) http.Handler {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
-		beautify.Printf("Started %s %s", r.Method, r.URL.Path)
+		logger.Info("Started %s %s", r.Method, r.URL.Path)
 
 		next.ServeHTTP(rw, r)
 
 		duration := time.Since(start)
 		statusColor := getStatusColor(rw.statusCode)
-		beautify.Printf("Completed %s %s %s%d%s in %v", r.Method, r.URL.Path, statusColor, rw.statusCode, "\x1b[0m", duration)
+
+		// 记录性能指标
+		isError := rw.statusCode >= 400
+		metrics.GetMetrics().RecordRequest(r.Method, duration, isError)
+
+		// 根据状态码选择日志级别
+		switch {
+		case rw.statusCode >= 500:
+			logger.Error("Completed %s %s %s%d%s in %v", r.Method, r.URL.Path, statusColor, rw.statusCode, "\x1b[0m", duration)
+		case rw.statusCode >= 400:
+			logger.Warn("Completed %s %s %s%d%s in %v", r.Method, r.URL.Path, statusColor, rw.statusCode, "\x1b[0m", duration)
+		default:
+			logger.Info("Completed %s %s %s%d%s in %v", r.Method, r.URL.Path, statusColor, rw.statusCode, "\x1b[0m", duration)
+		}
 	})
 }
 

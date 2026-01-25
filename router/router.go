@@ -24,10 +24,16 @@ func SetupRoutes() *http.ServeMux {
 	// 配置API路由
 	SetupAPIRoutes(mux)
 
-	// 服务根目录下的HTML文件（测试文件等）
-	mux.HandleFunc("/test_", func(w http.ResponseWriter, r *http.Request) {
-		filePath := filepath.Join(baseDir, r.URL.Path)
-		http.ServeFile(w, r, filePath)
+	// 配置监控 API 路由
+	mux.HandleFunc("/api/metrics", controller.MetricsHandler)
+	mux.HandleFunc("/api/metrics/reset", controller.MetricsResetHandler)
+
+	// 配置 PProf 路由
+	controller.RegisterPProfRoutes(mux)
+
+	// favicon.ico 专门路由
+	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(baseDir, "img", "favicon.ico"))
 	})
 
 	// 404处理器（必须放在最后）

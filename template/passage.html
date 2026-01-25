@@ -442,6 +442,23 @@ nav a.current {
   color: #ff9800;
 }
 
+/* 标签页指示器样式 */
+.file-tree .file-item .tab-indicator {
+  margin-left: 6px;
+  color: var(--primary-color);
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.file-tree .file-item.has-open-tab .tab-indicator {
+  opacity: 1;
+}
+
+.file-tree .file-item.active .tab-indicator {
+  opacity: 1;
+  color: var(--primary-color);
+}
+
 .file-tree .file-item .file-status {
   font-size: 0.75em;
   padding: 2px 6px;
@@ -471,29 +488,55 @@ nav a.current {
   backdrop-filter: blur(30px) saturate(200%);
   -webkit-backdrop-filter: blur(30px) saturate(200%);
   z-index: 5;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.tab-bar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tab-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.tab-bar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .tab {
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  border-right: 1px solid var(--border-color);
+  padding: 0 16px;
+  height: 100%;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   position: relative;
-  min-width: 120px;
-  max-width: 200px;
+  min-width: 100px;
+  max-width: 240px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: none;
+  margin-right: -1px;
+  border-radius: 8px 8px 0 0;
 }
 
 .tab:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .tab.active {
-  background-color: white;
+  background: rgba(255, 255, 255, 0.95);
   color: var(--primary-color);
   font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 1;
 }
 
 .tab.active::after {
@@ -502,31 +545,84 @@ nav a.current {
   bottom: 0;
   left: 0;
   width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-color-light));
+  border-radius: 0 0 2px 2px;
+}
+
+.tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 3px;
-  background-color: var(--primary-color);
+  background: var(--primary-color);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  border-radius: 8px 8px 0 0;
+}
+
+.tab:hover::before {
+  opacity: 0.3;
 }
 
 .tab .tab-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.95em;
+  font-size: 0.92em;
+  line-height: 1.2;
 }
 
 .tab .tab-close {
-  margin-left: 10px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  margin-left: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8em;
-  transition: background-color 0.2s ease;
+  font-size: 0.75em;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.tab:hover .tab-close {
+  opacity: 0.8;
+}
+
+.tab.active .tab-close {
+  opacity: 0.6;
 }
 
 .tab .tab-close:hover {
   background-color: rgba(0, 0, 0, 0.1);
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* 暗色模式下的标签栏样式 */
+@media (prefers-color-scheme: dark) {
+  .tab {
+    background: rgba(40, 40, 45, 0.95);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  
+  .tab:hover {
+    background: rgba(50, 50, 55, 0.95);
+  }
+  
+  .tab.active {
+    background: rgba(60, 60, 65, 0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .tab .tab-close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
 }
 
 /* 文章内容区域 */
@@ -2730,7 +2826,78 @@ let articlesData = {
 function initApp() {
   fetchArticlesData();
   setupEventListeners();
+  
+  // 检查是否有服务器端渲染的文章内容
+  const serverRenderedArticle = document.getElementById('articleContent');
+  if (serverRenderedArticle && serverRenderedArticle.style.display !== 'none') {
+    // 从 URL 中提取文章信息
+    const pathParts = window.location.pathname.split('/').filter(p => p);
+    if (pathParts.length >= 4 && pathParts[0] === 'passage') {
+      // 从文件树中查找对应的文章
+      const year = pathParts[1];
+      const month = pathParts[2];
+      const day = pathParts[3];
+      const title = pathParts.slice(4).join('/');
+      
+      // 查找文章 ID
+      let foundArticleId = null;
+      for (const folder of articlesData.folders) {
+        const article = findArticleByUrlPath(folder, year, month, day, title);
+        if (article) {
+          foundArticleId = article.id;
+          break;
+        }
+      }
+      
+      // 如果找到了文章，创建标签页
+      if (foundArticleId) {
+        if (!appState.openTabs.includes(foundArticleId)) {
+          appState.openTabs.push(foundArticleId);
+        }
+        appState.activeArticleId = foundArticleId;
+        
+        // 隐藏空状态
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) {
+          emptyState.style.display = 'none';
+        }
+      }
+    }
+  }
+  
   updateUI();
+}
+
+// 根据 URL 路径查找文章
+function findArticleByUrlPath(folder, year, month, day, title) {
+  // 检查当前文件夹是否匹配
+  if (folder.name === `${year}年` && folder.subfolders) {
+    for (const monthFolder of folder.subfolders) {
+      if (monthFolder.name === `${month}月` && monthFolder.subfolders) {
+        for (const dayFolder of monthFolder.subfolders) {
+          if (dayFolder.name === `${day}日` && dayFolder.files) {
+            for (const file of dayFolder.files) {
+              // 比较标题（去除特殊字符）
+              const sanitizedTitle = sanitizeTitle(file.title);
+              if (sanitizedTitle === title || file.title === title) {
+                return file;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 递归查找子文件夹
+  if (folder.subfolders) {
+    for (const subfolder of folder.subfolders) {
+      const result = findArticleByUrlPath(subfolder, year, month, day, title);
+      if (result) return result;
+    }
+  }
+  
+  return null;
 }
 
 // 从后端API获取文章数据
@@ -3419,6 +3586,19 @@ function createFolderElement(folder) {
   folderEl.querySelectorAll('.file-item').forEach(item => {
     const fileId = item.dataset.fileId;
     
+    // 添加标签页指示器
+    if (appState.openTabs.includes(fileId)) {
+      const indicator = document.createElement('span');
+      indicator.className = 'tab-indicator';
+      indicator.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 3h18v18H3V3zm16 16V5H5v14h14z"/>
+        </svg>
+      `;
+      item.appendChild(indicator);
+      item.classList.add('has-open-tab');
+    }
+    
     // 单击打开文章
     item.addEventListener('click', () => {
       openArticle(fileId);
@@ -3465,15 +3645,61 @@ function findFolderById(folder, id) {
 }
 
 // 打开文章
-function openArticle(articleId) {
+async function openArticle(articleId) {
   // 查找文章数据
   const articleData = findArticleById(articleId);
   
   if (!articleData) return;
   
-  // 如果有 markdown 路径，导航到该路径
+  // 如果有 markdown 路径，通过 API 获取完整文章内容
   if (articleData.markdownPath) {
-    window.location.href = `/passage/${articleData.markdownPath}`;
+    try {
+// 更新文章数据，包含完整内容
+      const fullArticleData = {
+        ...articleData,
+        id: articleId, // 保持原有的字符串 ID 格式
+        content: data.data.content || '',
+        summary: data.data.summary || '',
+        status: data.data.status || 'published',
+        isScheduled: data.data.is_scheduled || false,
+        publishedAt: data.data.published_at || '',
+        category: data.data.category || '未分类',
+        tags: data.data.tags || [],
+        // 保持原有的字段
+        date: articleData.date || data.data.created_at || '',
+        readtime: articleData.readtime || '5分钟',
+        author: articleData.author || '作者',
+        show_title: data.data.show_title !== undefined ? data.data.show_title : true
+      };
+      
+      // 更新活动文章
+      appState.activeArticleId = articleId;
+      
+      // 如果文章不在已打开标签中，则添加
+      if (!appState.openTabs.includes(articleId)) {
+        appState.openTabs.push(articleId);
+      }
+      
+      // 更新UI
+      updateUI();
+      
+      // 渲染文章内容
+      renderArticle(fullArticleData);
+      
+      // 隐藏空状态
+      emptyState.style.display = 'none';
+      
+      // 在移动设备上自动关闭侧边栏
+      if (window.innerWidth < 992) {
+        appState.sidebarOpen = false;
+        sidebar.classList.add('hidden');
+      }
+      
+    } catch (error) {
+      console.error('Error fetching article:', error);
+      // 如果 API 调用失败，回退到传统跳转方式
+      window.location.href = `/passage/${articleData.markdownPath}`;
+    }
     return;
   }
   
@@ -3530,7 +3756,7 @@ function findArticleInFolder(folder, articleId) {
 }
 
 // 在新标签页打开文章
-function openArticleInNewTab(articleId) {
+async function openArticleInNewTab(articleId) {
   // 查找文章数据
   const articleData = findArticleById(articleId);
   
@@ -3540,6 +3766,69 @@ function openArticleInNewTab(articleId) {
   if (appState.openTabs.includes(articleId)) {
     appState.activeArticleId = articleId;
     updateUI();
+    return;
+  }
+  
+  // 如果有 markdown 路径，通过 API 获取完整文章内容
+  if (articleData.markdownPath) {
+    try {
+      // 从 articleId 中提取数字 ID
+      const numericId = articleId.replace('article-', '');
+      
+      const response = await fetch(`/api/passages/${numericId}`);
+      
+      if (!response.ok) {
+        console.error('Failed to fetch article:', response.status);
+        return;
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.error('API returned error:', data.message);
+        return;
+      }
+      
+      // 更新文章数据，包含完整内容
+      const fullArticleData = {
+        ...articleData,
+        id: articleId, // 保持原有的字符串 ID 格式
+        content: data.data.content || '',
+        summary: data.data.summary || '',
+        status: data.data.status || 'published',
+        isScheduled: data.data.is_scheduled || false,
+        publishedAt: data.data.published_at || '',
+        category: data.data.category || '未分类',
+        tags: data.data.tags || [],
+        // 保持原有的字段
+        date: articleData.date || data.data.created_at || '',
+        readtime: articleData.readtime || '5分钟',
+        author: articleData.author || '作者',
+        show_title: data.data.show_title !== undefined ? data.data.show_title : true
+      };
+      
+      // 添加到已打开标签
+      appState.openTabs.push(articleId);
+      appState.activeArticleId = articleId;
+      
+      // 更新UI
+      updateUI();
+      
+      // 渲染文章内容
+      renderArticle(fullArticleData);
+      
+      // 隐藏空状态
+      emptyState.style.display = 'none';
+      
+      // 在移动设备上自动关闭侧边栏
+      if (window.innerWidth < 992) {
+        appState.sidebarOpen = false;
+        sidebar.classList.add('hidden');
+      }
+      
+    } catch (error) {
+      console.error('Error fetching article:', error);
+    }
     return;
   }
   
@@ -3672,11 +3961,35 @@ function renderArticle(articleData) {
 
 // 更新UI状态
 function updateUI() {
-  // 更新文件树中的活动文件
+  // 更新文件树中的活动文件和标签页指示器
   document.querySelectorAll('.file-item').forEach(item => {
+    const fileId = item.dataset.fileId;
+    
+    // 更新活动状态
     item.classList.remove('active');
-    if (item.dataset.fileId === appState.activeArticleId) {
+    if (fileId === appState.activeArticleId) {
       item.classList.add('active');
+    }
+    
+    // 更新标签页指示器
+    const existingIndicator = item.querySelector('.tab-indicator');
+    if (appState.openTabs.includes(fileId)) {
+      if (!existingIndicator) {
+        const indicator = document.createElement('span');
+        indicator.className = 'tab-indicator';
+        indicator.innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 3h18v18H3V3zm16 16V5H5v14h14z"/>
+          </svg>
+        `;
+        item.appendChild(indicator);
+      }
+      item.classList.add('has-open-tab');
+    } else {
+      if (existingIndicator) {
+        existingIndicator.remove();
+      }
+      item.classList.remove('has-open-tab');
     }
   });
   
@@ -3728,13 +4041,56 @@ function updateTabBar() {
 }
 
 // 切换到标签
-function switchToTab(articleId) {
+async function switchToTab(articleId) {
   appState.activeArticleId = articleId;
   
   // 查找文章数据
   const articleData = findArticleById(articleId);
   
   if (!articleData) return;
+  
+  // 如果有 markdown 路径，通过 API 获取最新文章内容
+  if (articleData.markdownPath) {
+    try {
+      // 从 articleId 中提取数字 ID
+      const numericId = articleId.replace('article-', '');
+      
+      const response = await fetch(`/api/passages/${numericId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          // 更新文章数据，包含完整内容
+          const fullArticleData = {
+            ...articleData,
+            id: articleId, // 保持原有的字符串 ID 格式
+            content: data.data.content || '',
+            summary: data.data.summary || '',
+            status: data.data.status || 'published',
+            isScheduled: data.data.is_scheduled || false,
+            publishedAt: data.data.published_at || '',
+            category: data.data.category || '未分类',
+            tags: data.data.tags || [],
+            // 保持原有的字段
+            date: articleData.date || data.data.created_at || '',
+            readtime: articleData.readtime || '5分钟',
+            author: articleData.author || '作者',
+            show_title: data.data.show_title !== undefined ? data.data.show_title : true
+          };
+          
+          // 渲染文章内容
+          renderArticle(fullArticleData);
+          
+          // 更新UI
+          updateUI();
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching article:', error);
+    }
+  }
   
   // 渲染文章内容
   renderArticle(articleData);

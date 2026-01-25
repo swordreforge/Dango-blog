@@ -35,12 +35,14 @@ func GetMusic() (*MusicSettings, error) {
 		"music_custom_css", "music_player_color", "music_position",
 	}
 
-	for _, key := range keys {
-		setting, err := repo.GetByKey(key)
-		if err != nil {
-			log.Printf("Failed to get setting %s: %v", key, err)
-			continue
-		}
+	// 使用批量查询
+	settingsMap, err := repo.GetByKeys(keys)
+	if err != nil {
+		log.Printf("Failed to get music settings: %v", err)
+		return &settings, nil
+	}
+
+	for key, setting := range settingsMap {
 		if setting != nil {
 			switch key {
 			case "music_enabled":

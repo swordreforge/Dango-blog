@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
+	apperrors "myblog-gogogo/pkg/errors"
 	"myblog-gogogo/auth"
 	"myblog-gogogo/db"
 	"myblog-gogogo/db/models"
@@ -129,7 +130,10 @@ func (s *UserService) validateUsername(username string) error {
 		return dto.ErrUsernameInvalid
 	}
 
-	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_]+$`, username)
+	matched, err := regexp.MatchString(`^[a-zA-Z0-9_]+$`, username)
+	if err != nil {
+		return apperrors.Wrap(err, "VALIDATION_ERROR", "用户名验证失败")
+	}
 	if !matched {
 		return dto.ErrUsernameInvalid
 	}

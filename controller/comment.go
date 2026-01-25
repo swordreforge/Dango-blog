@@ -48,13 +48,19 @@ func CommentHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Sscanf(passageIDStr, "%d", &passageID)
 			comments, err = repo.GetByPassageID(passageID, limitNum, offsetNum)
 			if err == nil {
-				total, _ = repo.CountByPassageID(passageID)
+				total, err = repo.CountByPassageID(passageID)
+				if err != nil {
+					total = 0
+				}
 			}
 		} else {
 			// 获取所有评论
 			comments, err = repo.GetAll(limitNum, offsetNum)
 			if err == nil {
-				total, _ = repo.Count()
+				total, err = repo.Count()
+				if err != nil {
+					total = 0
+				}
 			}
 		}
 

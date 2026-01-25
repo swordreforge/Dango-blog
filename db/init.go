@@ -36,24 +36,28 @@ var (
 )
 
 // InitDB 初始化数据库
-func InitDB(driver, dsn string) error {
+func InitDB(driver, dsn string, maxOpenConns, maxIdleConns, connMaxLifetime, connMaxIdleTime int) error {
 	var err error
-	
+
 	// 根据驱动类型获取DSN
 	config := drivers.Config{
-		FilePath: dsn,
+		FilePath:       dsn,
+		MaxOpenConns:   maxOpenConns,
+		MaxIdleConns:   maxIdleConns,
+		ConnMaxLifetime: time.Duration(connMaxLifetime) * time.Minute,
+		ConnMaxIdleTime: time.Duration(connMaxIdleTime) * time.Minute,
 	}
-	
+
 	driverImpl, err := drivers.GetDriver(driver)
 	if err != nil {
 		return fmt.Errorf("failed to get driver: %w", err)
 	}
-	
+
 	dbInstance, err = driverImpl.Connect(config)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
-	
+
 	// 创建表结构
 	if err := createTables(); err != nil {
 		return fmt.Errorf("failed to create tables: %w", err)
@@ -91,7 +95,6 @@ func createTables() error {
 		original_content TEXT,
 		summary TEXT,
 		author TEXT DEFAULT '管理员',
-		tags TEXT DEFAULT '[]',
 		category TEXT DEFAULT '未分类',
 		status TEXT DEFAULT 'published',
 		file_path TEXT,
@@ -299,12 +302,29 @@ func createTables() error {
 		category_id INTEGER DEFAULT 0,
 		sort_order INTEGER DEFAULT 0,
 		is_enabled BOOLEAN DEFAULT 1,
+		usage_count INTEGER DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 	CREATE INDEX IF NOT EXISTS idx_tags_category ON tags(category_id);
 	CREATE INDEX IF NOT EXISTS idx_tags_sort ON tags(sort_order);
+	`
+
+	// 创建文章-标签关联表
+	passageTagTable := `
+	CREATE TABLE IF NOT EXISTS passage_tags (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		passage_id INTEGER NOT NULL,
+		tag_id INTEGER NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (passage_id) REFERENCES passages(id) ON DELETE CASCADE,
+		FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+		UNIQUE(passage_id, tag_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_passage_tags_passage_id ON passage_tags(passage_id);
+	CREATE INDEX IF NOT EXISTS idx_passage_tags_tag_id ON passage_tags(tag_id);
+	CREATE INDEX IF NOT EXISTS idx_passage_tags_passage_created ON passage_tags(passage_id, created_at);
 	`
 
 	// 创建附件表
@@ -352,6 +372,7 @@ func createTables() error {
 	}
 
 	// 尝试添加original_content字段（如果已存在会忽略错误）
+	// 注意: 如果字段已存在,SQLite 会返回错误,这是预期行为,可以忽略
 	_, _ = dbInstance.Exec(alterTable)
 
 	// 尝试添加file_path字段（如果已存在会忽略错误）
@@ -413,6 +434,10 @@ func createTables() error {
 		return fmt.Errorf("failed to create tags table: %w", err)
 	}
 
+	if _, err := dbInstance.Exec(passageTagTable); err != nil {
+		return fmt.Errorf("failed to create passage_tags table: %w", err)
+	}
+
 	if _, err := dbInstance.Exec(attachmentTable); err != nil {
 		return fmt.Errorf("failed to create attachments table: %w", err)
 	}
@@ -421,8 +446,9 @@ func createTables() error {
 		return fmt.Errorf("failed to create music tracks table: %w", err)
 	}
 
-	// 迁移附件表：添加新字段（如果不存在）
+	// 迁移表：添加新字段（如果不存在）
 	migrations := []string{
+		"ALTER TABLE tags ADD COLUMN usage_count INTEGER DEFAULT 0",
 		"ALTER TABLE attachments ADD COLUMN visibility TEXT DEFAULT 'public'",
 		"ALTER TABLE attachments ADD COLUMN show_in_passage INTEGER DEFAULT 1",
 		"ALTER TABLE music_tracks ADD COLUMN cover_image TEXT DEFAULT ''",
@@ -1296,7 +1322,6 @@ func importSingleMarkdownFile(filePath string) error {
 		OriginalContent: originalContent,
 		Summary:         summary,
 		Author:          "管理员",
-		Tags:            `[]`,
 		Status:          "published",
 		FilePath:        relativePath,
 		Visibility:      "public", // 默认为公开

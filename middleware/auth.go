@@ -2,18 +2,18 @@ package middleware
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strings"
 
 	"myblog-gogogo/auth"
 	"myblog-gogogo/controller"
+	"myblog-gogogo/pkg/logger"
 )
 
 // AuthMiddleware 认证中间件
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[AuthMiddleware] Processing request: %s", r.URL.Path)
+		logger.Debug("[AuthMiddleware] Processing request: %s", r.URL.Path)
 
 		// 检查管理后台页面访问
 		if r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") {
@@ -28,7 +28,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			// 验证token
 			claims, err := auth.ValidateToken(cookie.Value)
 			if err != nil {
-				log.Printf("Admin access - Token validation failed: %v", err)
+				logger.Warn("Admin access - Token validation failed: %v", err)
 				// 重定向到首页
 				http.Redirect(w, r, "/", http.StatusSeeOther)
 				return
@@ -36,7 +36,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 			// 检查是否为管理员
 			if claims.Role != "admin" {
-				log.Printf("Admin access denied for user %s (role: %s)", claims.Username, claims.Role)
+				logger.Warn("Admin access denied for user %s (role: %s)", claims.Username, claims.Role)
 				// 重定向到首页
 				http.Redirect(w, r, "/", http.StatusSeeOther)
 				return
@@ -86,7 +86,13 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 			// 检查是否是公开API路径（如 /api/passages/123）
 			for apiPath := range publicAPIs {
-				if len(r.URL.Path) > len(apiPath) && r.URL.Path[:len(apiPath)] == apiPath {
+				// 精确匹配或路径前缀匹配（确保 /api/passages/123 不会被 /api/passages 误匹配）
+				if r.URL.Path == apiPath {
+					next.ServeHTTP(w, r)
+					return
+				}
+				// 对于需要前缀匹配的路径，确保后面跟着 /
+				if strings.HasPrefix(r.URL.Path, apiPath+"/") {
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -124,7 +130,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			// 验证token
 			claims, err := auth.ValidateToken(tokenString)
 			if err != nil {
-				log.Printf("Token validation failed: %v", err)
+				logger.Warn("Token validation failed: %v", err)
 				controller.RenderStatusPage(w, http.StatusUnauthorized)
 				return
 			}
@@ -147,14 +153,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		// 对于其他路径（如 /passage/），尝试从 cookie 中获取用户信息并设置到 context
 		// 这样其他中间件（如 CheckPassageAccess）可以使用这些信息
-		log.Printf("[AuthMiddleware] Processing non-admin/non-api path: %s", r.URL.Path)
+		logger.Debug("[AuthMiddleware] Processing non-admin/non-api path: %s", r.URL.Path)
 		cookie, err := r.Cookie("auth_token")
 		if err == nil {
-			log.Printf("[AuthMiddleware] Found auth_token cookie")
+			logger.Debug("[AuthMiddleware] Found auth_token cookie")
 			// 尝试验证 token
 			claims, validateErr := auth.ValidateToken(cookie.Value)
 			if validateErr == nil {
-				log.Printf("[AuthMiddleware] Token validated for user %s (role: %s) on path %s", claims.Username, claims.Role, r.URL.Path)
+				logger.Debug("[AuthMiddleware] Token validated for user %s (role: %s) on path %s", claims.Username, claims.Role, r.URL.Path)
 				// 将用户信息存入context
 				ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 				ctx = context.WithValue(ctx, UsernameKey, claims.Username)
@@ -162,10 +168,10 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			} else {
-				log.Printf("[AuthMiddleware] Token validation failed on path %s: %v", r.URL.Path, validateErr)
+				logger.Debug("[AuthMiddleware] Token validation failed on path %s: %v", r.URL.Path, validateErr)
 			}
 		} else {
-			log.Printf("[AuthMiddleware] No auth_token cookie found on path %s: %v", r.URL.Path, err)
+			logger.Debug("[AuthMiddleware] No auth_token cookie found on path %s: %v", r.URL.Path, err)
 		}
 
 		next.ServeHTTP(w, r)

@@ -36,7 +36,7 @@ type UploadResult struct {
 }
 
 // HandleUpload 处理文件上传
-func (s *UploadService) HandleUpload(file multipart.File, header *multipart.FileHeader, year, month, day string) (*UploadResult, error) {
+func (s *UploadService) HandleUpload(file multipart.File, header *multipart.FileHeader, year, month, day, tags string) (*UploadResult, error) {
 	// 读取文件内容
 	content, err := io.ReadAll(file)
 	if err != nil {
@@ -48,7 +48,7 @@ func (s *UploadService) HandleUpload(file multipart.File, header *multipart.File
 	
 	switch ext {
 	case ".md":
-		return s.handleMarkdownUpload(content, header, year, month, day)
+		return s.handleMarkdownUpload(content, header, year, month, day, tags)
 	case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg":
 		return s.handleImageUpload(content, header)
 	default:
@@ -57,7 +57,7 @@ func (s *UploadService) HandleUpload(file multipart.File, header *multipart.File
 }
 
 // handleMarkdownUpload 处理 markdown 文件上传
-func (s *UploadService) handleMarkdownUpload(content []byte, header *multipart.FileHeader, year, month, day string) (*UploadResult, error) {
+func (s *UploadService) handleMarkdownUpload(content []byte, header *multipart.FileHeader, year, month, day, tags string) (*UploadResult, error) {
 	// 如果没有提供日期，使用当前日期
 	if year == "" || month == "" || day == "" {
 		now := time.Now()
@@ -107,8 +107,8 @@ func (s *UploadService) handleMarkdownUpload(content []byte, header *multipart.F
 		return nil, fmt.Errorf("写入文件失败: %w", err)
 	}
 
-	// 同步到数据库
-	if err := s.syncService.SyncFile(filePath); err != nil {
+	// 同步到数据库，传递标签参数
+	if err := s.syncService.SyncFile(filePath, tags); err != nil {
 		// 记录错误但不返回，因为文件已经成功上传
 		fmt.Printf("同步到数据库失败: %v\n", err)
 	}

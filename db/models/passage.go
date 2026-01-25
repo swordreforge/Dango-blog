@@ -10,7 +10,6 @@ type Passage struct {
 	OriginalContent string    `json:"original_content"` // 原始Markdown内容
 	Summary         string    `json:"summary"`
 	Author          string    `json:"author"`
-	Tags            string    `json:"tags"` // JSON格式存储
 	Category        string    `json:"category"` // 文章分类
 	Status          string    `json:"status"` // published, draft, pending
 	FilePath        string    `json:"file_path"` // Markdown 文件的相对路径

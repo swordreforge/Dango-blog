@@ -22,6 +22,7 @@ import (
 	"myblog-gogogo/service"
 	"myblog-gogogo/service/attachment"
 	"myblog-gogogo/pkg/beautify"
+	"myblog-gogogo/pkg/logger"
 )
 
 //go:embed template img music
@@ -51,6 +52,9 @@ func main() {
 	// 加载配置
 	cfg := config.Load()
 
+	// 初始化日志级别
+	logger.SetLevelFromString(cfg.LogLevel)
+
 	// 显示启动标题
 	beautify.Header("Dango 服务启动")
 
@@ -62,6 +66,7 @@ func main() {
 	beautify.Leaf(fmt.Sprintf("连接: %s", cfg.DBConnStr))
 	beautify.Branch("服务器配置")
 	beautify.Leaf(fmt.Sprintf("端口: %s", cfg.Port))
+	beautify.Leaf(fmt.Sprintf("日志级别: %s", cfg.LogLevel))
 	if cfg.KafkaBrokers != "" {
 		beautify.Leaf(fmt.Sprintf("Kafka: %s", cfg.KafkaBrokers))
 	} else {
@@ -83,7 +88,7 @@ func main() {
 	beautify.Section("数据库初始化")
 	beautify.Indent()
 	beautify.Info("正在初始化数据库...")
-	if err := db.InitDB(cfg.DBDriver, cfg.DBConnStr); err != nil {
+	if err := db.InitDB(cfg.DBDriver, cfg.DBConnStr, cfg.DBMaxOpenConns, cfg.DBMaxIdleConns, cfg.DBConnMaxLifetime, cfg.DBConnMaxIdleTime); err != nil {
 		beautify.ErrorLeaf(fmt.Sprintf("初始化失败: %v", err))
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -152,12 +157,12 @@ func main() {
 			// 异步生产者
 			beautify.Indent()
 			beautify.Branch("异步生产者")
-			if err := kafka.InitAsyncProducer(brokers, 1000); err != nil {
+			if err := kafka.InitAsyncProducer(brokers, cfg.KafkaProducerQueueSize); err != nil {
 				beautify.ErrorLeaf(fmt.Sprintf("初始化失败: %v", err))
 				beautify.Warn("异步 Kafka 生产者功能已禁用。")
 			} else {
 				defer kafka.CloseAsyncProducer()
-				beautify.SuccessLeaf("异步 Kafka 生产者初始化成功 (队列大小: 1000)")
+				beautify.SuccessLeaf(fmt.Sprintf("异步 Kafka 生产者初始化成功 (队列大小: %d)", cfg.KafkaProducerQueueSize))
 			}
 			beautify.Outdent()
 		}
@@ -167,11 +172,9 @@ func main() {
 
 	// 工作池
 	beautify.Branch("工作池")
-	workerCount := 2
-	queueSize := 1000
-	service.InitWorkerPool(workerCount, queueSize)
+	service.InitWorkerPool(cfg.WorkerCount, cfg.WorkerQueueSize)
 	defer service.CloseWorkerPool()
-	beautify.SuccessLeaf(fmt.Sprintf("工作池初始化成功 (%d workers, 队列: %d)", workerCount, queueSize))
+	beautify.SuccessLeaf(fmt.Sprintf("工作池初始化成功 (%d workers, 队列: %d)", cfg.WorkerCount, cfg.WorkerQueueSize))
 	beautify.Outdent()
 
 	// 初始化关于页面仓库
@@ -183,25 +186,29 @@ func main() {
 	beautify.Indent()
 	beautify.Branch("会话清理")
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(time.Duration(cfg.SessionCleanupInterval) * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
 			controller.CleanupExpiredSessions()
 			beautify.Debugf("清理过期 ECC 会话完成。活跃会话: %d", controller.GetSessionCount())
 		}
 	}()
-	beautify.SuccessLeaf("会话清理任务已启动（每 5 分钟）")
+	beautify.SuccessLeaf(fmt.Sprintf("会话清理任务已启动（每 %d 分钟）", cfg.SessionCleanupInterval))
 
 	// 启动文件监控
 	beautify.Branch("文件监控")
 	repo := db.GetPassageRepository()
 	syncService := service.NewSyncService(repo)
-	go func() {
-		if err := syncService.WatchAndSync(); err != nil {
-			beautify.Errorf("文件监控错误: %v", err)
-		}
-	}()
-	beautify.SuccessLeaf("文件监控已启动")
+	if cfg.EnableFileWatch {
+		go func() {
+			if err := syncService.WatchAndSync(); err != nil {
+				beautify.Errorf("文件监控错误: %v", err)
+			}
+		}()
+		beautify.SuccessLeaf("文件监控已启动")
+	} else {
+		beautify.Leaf("文件监控已禁用（使用 --enable-file-watch 启用）")
+	}
 	beautify.Outdent()
 
 	// 设置路由

@@ -7536,7 +7536,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         content: articleContent,
         author: author,
         category: category,
-        tags: selectedTags.join(','),
+        tags: JSON.stringify(selectedTags),
         status: status,
         created_at: createdAt
       })
@@ -7615,6 +7615,15 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
       uploadPreview.innerHTML = '';
       selectedFiles = [];
 
+      // 清除标签选择器的选中状态
+      document.querySelectorAll('#uploadTagSelector .tag-option.selected').forEach(option => {
+        option.classList.remove('selected');
+      });
+      // 清除分类选择器的选中状态
+      document.querySelectorAll('#uploadCategorySelector .category-option.selected').forEach(option => {
+        option.classList.remove('selected');
+      });
+
       // 刷新文章列表
       fetchAdminData();
 
@@ -7690,6 +7699,16 @@ document.getElementById('articleForm').addEventListener('submit', async function
         submitBtn.disabled = false;
         submitBtn.style.background = 'rgba(255, 183, 122, 0.8)';
         this.reset();
+
+        // 清除标签选择器的选中状态
+        document.querySelectorAll('#articleTagSelector .tag-option.selected').forEach(option => {
+          option.classList.remove('selected');
+        });
+        // 重置隐藏的标签输入框
+        const tagsInput = document.getElementById('articleTags');
+        if (tagsInput) {
+          tagsInput.value = JSON.stringify([]);
+        }
 
         // 刷新文章列表
         fetchAdminData();

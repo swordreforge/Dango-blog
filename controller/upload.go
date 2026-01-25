@@ -86,11 +86,14 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	month := r.FormValue("month")
 	day := r.FormValue("day")
 
+	// 获取标签参数（可选）
+	tags := r.FormValue("tags")
+
 	// 创建上传服务
 	uploadService := service.NewUploadService()
 
 	// 处理上传
-	result, err := uploadService.HandleUpload(file, header, year, month, day)
+	result, err := uploadService.HandleUpload(file, header, year, month, day, tags)
 	if err != nil {
 		// 根据错误信息判断具体错误类型
 		errMsg := err.Error()

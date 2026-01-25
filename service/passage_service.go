@@ -189,7 +189,10 @@ func (s *PassageService) UpdatePassage(id int, req *dto.UpdatePassageRequest) (*
 	}
 
 	// 重新获取完整数据
-	passage, _ := s.passageRepo.GetByID(id)
+	passage, err := s.passageRepo.GetByID(id)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "DB_ERROR", "获取更新后的文章失败")
+	}
 
 	return s.toDTO(passage), nil
 }

@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -30,9 +31,14 @@ func NewSQLitePassageRepository(db *sql.DB) *SQLitePassageRepository {
 	return &SQLitePassageRepository{db: db}
 }
 
+// getContext 创建带超时的 context
+func (r *SQLitePassageRepository) getContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 5*time.Second)
+}
+
 func (r *SQLitePassageRepository) Create(passage *models.Passage) error {
-	query := `INSERT INTO passages (title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO passages (title, content, original_content, summary, author, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	now := time.Now()
 
@@ -61,7 +67,7 @@ func (r *SQLitePassageRepository) Create(passage *models.Passage) error {
 	}
 
 	result, err := r.db.Exec(query, passage.Title, passage.Content, passage.OriginalContent, passage.Summary,
-		passage.Author, passage.Tags, passage.Category, passage.Status, passage.FilePath, passage.Visibility,
+		passage.Author, passage.Category, passage.Status, passage.FilePath, passage.Visibility,
 		isScheduled, passage.PublishedAt, showTitle, passage.CreatedAt, now)
 	if err != nil {
 		return err
@@ -77,15 +83,18 @@ func (r *SQLitePassageRepository) Create(passage *models.Passage) error {
 }
 
 func (r *SQLitePassageRepository) GetByID(id int) (*models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
+	ctx, cancel := r.getContext()
+	defer cancel()
+
+	query := `SELECT id, title, content, original_content, summary, author, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages WHERE id = ?`
 
 	passage := &models.Passage{}
 	var isScheduled int
 	var showTitle int
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
-		&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
+		&passage.Author, &passage.Category, &passage.Status, &passage.FilePath,
 		&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 		&passage.CreatedAt, &passage.UpdatedAt,
 	)
@@ -106,10 +115,13 @@ func (r *SQLitePassageRepository) GetByID(id int) (*models.Passage, error) {
 }
 
 func (r *SQLitePassageRepository) GetAll(limit, offset int) ([]models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
+	ctx, cancel := r.getContext()
+	defer cancel()
+
+	query := `SELECT id, title, content, original_content, summary, author, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages ORDER BY created_at DESC LIMIT ? OFFSET ?`
 
-	rows, err := r.db.Query(query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +134,7 @@ func (r *SQLitePassageRepository) GetAll(limit, offset int) ([]models.Passage, e
 		var showTitle int
 		err := rows.Scan(
 			&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
-			&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
+			&passage.Author, &passage.Category, &passage.Status, &passage.FilePath,
 			&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 			&passage.CreatedAt, &passage.UpdatedAt,
 		)
@@ -140,7 +152,10 @@ func (r *SQLitePassageRepository) GetAll(limit, offset int) ([]models.Passage, e
 }
 
 func (r *SQLitePassageRepository) Update(passage *models.Passage) error {
-	query := `UPDATE passages SET title = ?, content = ?, original_content = ?, summary = ?, author = ?, tags = ?, category = ?,
+	ctx, cancel := r.getContext()
+	defer cancel()
+
+	query := `UPDATE passages SET title = ?, content = ?, original_content = ?, summary = ?, author = ?, category = ?,
 	          status = ?, file_path = ?, visibility = ?, is_scheduled = ?, published_at = ?, show_title = ?, updated_at = ? WHERE id = ?`
 
 	passage.UpdatedAt = time.Now()
@@ -157,24 +172,30 @@ func (r *SQLitePassageRepository) Update(passage *models.Passage) error {
 		showTitle = 1
 	}
 
-	_, err := r.db.Exec(query, passage.Title, passage.Content, passage.OriginalContent, passage.Summary,
-		passage.Author, passage.Tags, passage.Category, passage.Status, passage.FilePath, passage.Visibility,
+	_, err := r.db.ExecContext(ctx, query, passage.Title, passage.Content, passage.OriginalContent, passage.Summary,
+		passage.Author, passage.Category, passage.Status, passage.FilePath, passage.Visibility,
 		isScheduled, passage.PublishedAt, showTitle, passage.UpdatedAt, passage.ID)
 
 	return err
 }
 
 func (r *SQLitePassageRepository) Delete(id int) error {
+	ctx, cancel := r.getContext()
+	defer cancel()
+
 	query := `DELETE FROM passages WHERE id = ?`
-	_, err := r.db.Exec(query, id)
+	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }
 
 func (r *SQLitePassageRepository) GetByStatus(status string, limit, offset int) ([]models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
+	ctx, cancel := r.getContext()
+	defer cancel()
+
+	query := `SELECT id, title, content, original_content, summary, author, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`
 
-	rows, err := r.db.Query(query, status, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, status, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +208,7 @@ func (r *SQLitePassageRepository) GetByStatus(status string, limit, offset int) 
 		var showTitle int
 		err := rows.Scan(
 			&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
-			&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
+			&passage.Author, &passage.Category, &passage.Status, &passage.FilePath,
 			&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 			&passage.CreatedAt, &passage.UpdatedAt,
 		)
@@ -205,22 +226,31 @@ func (r *SQLitePassageRepository) GetByStatus(status string, limit, offset int) 
 }
 
 func (r *SQLitePassageRepository) Count() (int, error) {
+	ctx, cancel := r.getContext()
+	defer cancel()
+
 	var count int
-	err := r.db.QueryRow("SELECT COUNT(*) FROM passages").Scan(&count)
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM passages").Scan(&count)
 	return count, err
 }
 
 func (r *SQLitePassageRepository) CountByStatus(status string) (int, error) {
+	ctx, cancel := r.getContext()
+	defer cancel()
+
 	var count int
-	err := r.db.QueryRow("SELECT COUNT(*) FROM passages WHERE status = ?", status).Scan(&count)
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM passages WHERE status = ?", status).Scan(&count)
 	return count, err
 }
 
 func (r *SQLitePassageRepository) GetByCategory(category string, limit, offset int) ([]models.Passage, error) {
-	query := `SELECT id, title, content, original_content, summary, author, tags, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
+	ctx, cancel := r.getContext()
+	defer cancel()
+
+	query := `SELECT id, title, content, original_content, summary, author, category, status, file_path, visibility, is_scheduled, published_at, show_title, created_at, updated_at
 	          FROM passages WHERE category = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`
 
-	rows, err := r.db.Query(query, category, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, category, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +263,7 @@ func (r *SQLitePassageRepository) GetByCategory(category string, limit, offset i
 		var showTitle int
 		err := rows.Scan(
 			&passage.ID, &passage.Title, &passage.Content, &passage.OriginalContent, &passage.Summary,
-			&passage.Author, &passage.Tags, &passage.Category, &passage.Status, &passage.FilePath,
+			&passage.Author, &passage.Category, &passage.Status, &passage.FilePath,
 			&passage.Visibility, &isScheduled, &passage.PublishedAt, &showTitle,
 			&passage.CreatedAt, &passage.UpdatedAt,
 		)
@@ -251,9 +281,12 @@ func (r *SQLitePassageRepository) GetByCategory(category string, limit, offset i
 }
 
 func (r *SQLitePassageRepository) GetAllCategories() ([]string, error) {
+	ctx, cancel := r.getContext()
+	defer cancel()
+
 	query := `SELECT DISTINCT category FROM passages WHERE category != '未分类' ORDER BY category`
 
-	rows, err := r.db.Query(query)
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}

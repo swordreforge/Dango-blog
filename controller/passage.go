@@ -35,14 +35,21 @@ func PassageAPIHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 解析分页参数
-		pageNum, _ := strconv.Atoi(page)
-		limitNum, _ := strconv.Atoi(limit)
+		pageNum, err := strconv.Atoi(page)
+		if err != nil || pageNum < 1 {
+			pageNum = 1
+		}
+
+		limitNum, err := strconv.Atoi(limit)
+		if err != nil || limitNum < 1 {
+			limitNum = 10
+		}
+
 		offset := (pageNum - 1) * limitNum
 
 		// 从数据库获取文章列表
 		repo := db.GetPassageRepository()
 		var passages []models.Passage
-		var err error
 
 		if category != "" && category != "all" {
 			passages, err = repo.GetByCategory(category, limitNum, offset)
@@ -65,19 +72,31 @@ func PassageAPIHandler(w http.ResponseWriter, r *http.Request) {
 		passageTagRepo := db.GetPassageTagRepository()
 		tagRepo := db.GetTagRepository()
 
+		// 批量获取所有标签（只查询一次）
+		allTags, err := tagRepo.GetAll()
+		tagMap := make(map[int]string)
+		if err == nil {
+			for _, t := range allTags {
+				tagMap[t.ID] = t.Name
+			}
+		}
+
+		// 批量获取所有文章的标签ID（只查询一次）
+		passageIDs := make([]int, len(passages))
 		for i, p := range passages {
-			// 从关联表获取标签
-			tagIDs, err := passageTagRepo.GetTagIDsByPassageID(p.ID)
-			var tagNames []string
-			if err == nil && len(tagIDs) > 0 {
-				// 获取标签名称
-				allTags, _ := tagRepo.GetAll()
-				tagMap := make(map[int]string)
-				for _, t := range allTags {
-					tagMap[t.ID] = t.Name
-				}
+			passageIDs[i] = p.ID
+		}
+		passageTagsMap, err := passageTagRepo.GetTagIDsByPassageIDs(passageIDs)
+		if err != nil {
+			passageTagsMap = make(map[int][]int)
+		}
+
+		for i, p := range passages {
+			// 从映射中获取标签名称
+			tagNames := []string{}
+			if tagIDs, ok := passageTagsMap[p.ID]; ok {
 				for _, tagID := range tagIDs {
-					if name, ok := tagMap[tagID]; ok {
+					if name, exists := tagMap[tagID]; exists {
 						tagNames = append(tagNames, name)
 					}
 				}
@@ -235,7 +254,11 @@ func PassageDetailHandler(w http.ResponseWriter, r *http.Request) {
 		userAgent := r.Header.Get("User-Agent")
 
 		// 获取地理位置信息
-		country, city, region, _ := service.GetLocationFromIP(ip)
+		country, city, region, geoErr := service.GetLocationFromIP(ip)
+		if geoErr != nil {
+			// 地理位置查询失败不影响阅读记录,使用空值
+			country, city, region = "", "", ""
+		}
 
 		// 记录阅读
 		RecordArticleView(id, ip, userAgent, country, city, region)
@@ -253,17 +276,19 @@ func PassageDetailHandler(w http.ResponseWriter, r *http.Request) {
 	passageTagRepo := db.GetPassageTagRepository()
 	tagRepo := db.GetTagRepository()
 	tagIDs, err := passageTagRepo.GetTagIDsByPassageID(id)
-	var tagNames []string
+	tagNames := []string{} // 初始化为空数组，而不是 nil
 	if err == nil && len(tagIDs) > 0 {
 		// 获取标签名称
-		allTags, _ := tagRepo.GetAll()
-		tagMap := make(map[int]string)
-		for _, t := range allTags {
-			tagMap[t.ID] = t.Name
-		}
-		for _, tagID := range tagIDs {
-			if name, ok := tagMap[tagID]; ok {
-				tagNames = append(tagNames, name)
+		allTags, err := tagRepo.GetAll()
+		if err == nil {
+			tagMap := make(map[int]string)
+			for _, t := range allTags {
+				tagMap[t.ID] = t.Name
+			}
+			for _, tagID := range tagIDs {
+				if name, ok := tagMap[tagID]; ok {
+					tagNames = append(tagNames, name)
+				}
 			}
 		}
 	}
@@ -302,16 +327,12 @@ func TagsAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从 passage_tags 表统计每个标签的使用次数
+	// 从 passage_tags 表批量统计所有标签的使用次数（避免 N+1 查询）
 	passageTagRepo := db.GetPassageTagRepository()
-	tagCountMap := make(map[int]int)
-	for _, tag := range tags {
-		count, err := passageTagRepo.CountByTagID(tag.ID)
-		if err != nil {
-			apperrors.SendError(w, apperrors.Wrap(err, "DB_ERROR", "统计标签使用次数失败"))
-			return
-		}
-		tagCountMap[tag.ID] = count
+	tagCountMap, err := passageTagRepo.GetAllTagCounts()
+	if err != nil {
+		apperrors.SendError(w, apperrors.Wrap(err, "DB_ERROR", "统计标签使用次数失败"))
+		return
 	}
 
 	// 转换为API响应格式

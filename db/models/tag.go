@@ -11,6 +11,7 @@ type Tag struct {
 	CategoryID  int       `json:"category_id"` // 所属分类ID，0表示无分类
 	SortOrder   int       `json:"sort_order"`
 	IsEnabled   bool      `json:"is_enabled"`
+	UsageCount  int       `json:"usage_count"` // 使用次数统计
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	"myblog-gogogo/db/models"
@@ -12,6 +13,7 @@ type SettingRepository interface {
 	Create(setting *models.Setting) error
 	GetByID(id int) (*models.Setting, error)
 	GetByKey(key string) (*models.Setting, error)
+	GetByKeys(keys []string) (map[string]*models.Setting, error)
 	GetAll(limit, offset int) ([]models.Setting, error)
 	GetByCategory(category string, limit, offset int) ([]models.Setting, error)
 	Update(setting *models.Setting) error
@@ -92,6 +94,44 @@ func (r *SQLiteSettingRepository) GetByKey(key string) (*models.Setting, error) 
 	}
 
 	return setting, nil
+}
+
+func (r *SQLiteSettingRepository) GetByKeys(keys []string) (map[string]*models.Setting, error) {
+	if len(keys) == 0 {
+		return make(map[string]*models.Setting), nil
+	}
+
+	// 构建查询参数
+	placeholders := make([]string, len(keys))
+	args := make([]interface{}, len(keys))
+	for i, key := range keys {
+		placeholders[i] = "?"
+		args[i] = key
+	}
+
+	query := `SELECT id, key, value, type, description, category, created_at, updated_at
+	          FROM settings WHERE key IN (` + strings.Join(placeholders, ",") + `)`
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]*models.Setting)
+	for rows.Next() {
+		setting := &models.Setting{}
+		err := rows.Scan(
+			&setting.ID, &setting.Key, &setting.Value, &setting.Type,
+			&setting.Description, &setting.Category, &setting.CreatedAt, &setting.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		result[setting.Key] = setting
+	}
+
+	return result, nil
 }
 
 func (r *SQLiteSettingRepository) GetAll(limit, offset int) ([]models.Setting, error) {

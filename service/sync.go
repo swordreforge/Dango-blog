@@ -1,7 +1,9 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"myblog-gogogo/db"
 	"myblog-gogogo/db/models"
 	"myblog-gogogo/db/repositories"
 )
@@ -33,7 +36,7 @@ func (s *SyncService) SyncAll() error {
 	}
 
 	for _, file := range files {
-		if err := s.SyncFile(file); err != nil {
+		if err := s.SyncFile(file, ""); err != nil {
 			// 记录错误但继续处理其他文件
 			fmt.Printf("Failed to sync %s: %v\n", file, err)
 		}
@@ -43,7 +46,7 @@ func (s *SyncService) SyncAll() error {
 }
 
 // SyncFile 同步单个 markdown 文件到数据库
-func (s *SyncService) SyncFile(filePath string) error {
+func (s *SyncService) SyncFile(filePath string, tagsParam string) error {
 	// 解析 markdown 文件
 	doc, err := ParseMarkdownFile(filePath)
 	if err != nil {
@@ -85,8 +88,11 @@ func (s *SyncService) SyncFile(filePath string) error {
 	// 生成摘要
 	summary := s.extractSummary(doc.Content)
 
-	// 生成标签
-	tags := s.extractTags(relativePath)
+	// 使用传入的标签参数，如果没有则从路径提取
+	tags := tagsParam
+	if tags == "" {
+		tags = s.extractTags(relativePath)
+	}
 
 	// 检查是否已存在（通过文件路径）
 	existingPassage, err := s.findPassageByFilePath(relativePath)
@@ -100,7 +106,6 @@ func (s *SyncService) SyncFile(filePath string) error {
 		existingPassage.Content = doc.Content
 		existingPassage.OriginalContent = doc.OriginalContent
 		existingPassage.Summary = summary
-		existingPassage.Tags = tags
 		existingPassage.Status = "published"
 		existingPassage.FilePath = relativePath
 		existingPassage.UpdatedAt = time.Now()
@@ -108,6 +113,12 @@ func (s *SyncService) SyncFile(filePath string) error {
 		if err := s.repo.Update(existingPassage); err != nil {
 			return fmt.Errorf("failed to update passage: %w", err)
 		}
+
+		// 更新标签关联（统一使用关联表）
+		if err := s.UpdatePassageTags(existingPassage.ID, tags); err != nil {
+			log.Printf("Warning: 更新标签关联失败: %v\n", err)
+		}
+
 		fmt.Printf("Updated passage: %s (from %s)\n", doc.Title, relativePath)
 	} else {
 		// 创建新文章
@@ -117,7 +128,6 @@ func (s *SyncService) SyncFile(filePath string) error {
 			OriginalContent: doc.OriginalContent,
 			Summary:         summary,
 			Author:          "Admin",
-			Tags:            tags,
 			Status:          "published",
 			FilePath:        relativePath,
 			CreatedAt:       createdAt,
@@ -127,6 +137,12 @@ func (s *SyncService) SyncFile(filePath string) error {
 		if err := s.repo.Create(passage); err != nil {
 			return fmt.Errorf("failed to create passage: %w", err)
 		}
+
+		// 创建标签关联（统一使用关联表）
+		if err := s.UpdatePassageTags(passage.ID, tags); err != nil {
+			log.Printf("Warning: 创建标签关联失败: %v\n", err)
+		}
+
 		fmt.Printf("Created passage: %s (from %s)\n", doc.Title, relativePath)
 	}
 
@@ -186,38 +202,11 @@ func (s *SyncService) extractSummary(htmlContent string) string {
 }
 
 // extractTags 从路径中提取标签
+// 注意：此方法已废弃，标签应通过上传时的 tags 参数提供，统一使用 passage_tags 关联表管理
 func (s *SyncService) extractTags(path string) string {
-	parts := strings.Split(path, "/")
-	
-	// 使用年份和月份作为标签
-	var tags []string
-	if len(parts) >= 2 {
-		tags = append(tags, parts[0])  // 年份
-		tags = append(tags, parts[1])  // 月份
-	}
-
-	// 转换为 JSON 格式
-	if len(tags) == 0 {
-		return "[]"
-	}
-
-	// 使用 strings.Builder 优化字符串拼接
-	var builder strings.Builder
-	// 预分配容量：每个标签平均 10 字符 + 3 个引号/逗号
-	builder.Grow(len(tags) * 13)
-	builder.WriteString("[")
-
-	for i, tag := range tags {
-		if i > 0 {
-			builder.WriteString(",")
-		}
-		builder.WriteString(`"`)
-		builder.WriteString(tag)
-		builder.WriteString(`"`)
-	}
-
-	builder.WriteString("]")
-	return builder.String()
+	// 返回空字符串，不自动从路径提取标签
+	// 标签应通过上传时的 tags 参数明确提供
+	return ""
 }
 
 // GetPassageByPath 通过路径获取文章
@@ -311,7 +300,7 @@ func (s *SyncService) WatchAndSync() error {
 				fmt.Printf("File created: %s\n", event.Name)
 				// 等待一小段时间，确保文件写入完成
 				time.Sleep(100 * time.Millisecond)
-				if err := s.SyncFile(event.Name); err != nil {
+				if err := s.SyncFile(event.Name, ""); err != nil {
 					fmt.Printf("Failed to sync created file: %v\n", err)
 				}
 
@@ -319,7 +308,7 @@ func (s *SyncService) WatchAndSync() error {
 				fmt.Printf("File modified: %s\n", event.Name)
 				// 等待一小段时间，确保文件写入完成
 				time.Sleep(100 * time.Millisecond)
-				if err := s.SyncFile(event.Name); err != nil {
+				if err := s.SyncFile(event.Name, ""); err != nil {
 					fmt.Printf("Failed to sync modified file: %v\n", err)
 				}
 
@@ -387,6 +376,88 @@ func (s *SyncService) removePassageByFilePath(filePath string) error {
 			return fmt.Errorf("failed to delete passage: %w", err)
 		}
 		fmt.Printf("Deleted passage: %s (from %s)\n", existingPassage.Title, relativePath)
+	}
+
+	return nil
+}
+
+// UpdatePassageTags 更新文章的标签关联
+// 统一使用 passage_tags 关联表管理标签，不再使用 Passage.Tags JSON 字段
+func (s *SyncService) UpdatePassageTags(passageID int, tagsStr string) error {
+	// 获取标签和文章标签关联的仓库
+	tagRepo := db.GetTagRepository()
+	passageTagRepo := db.GetPassageTagRepository()
+
+	// 删除现有的标签关联
+	if err := passageTagRepo.DeleteByPassageID(passageID); err != nil {
+		return fmt.Errorf("删除文章标签关联失败: %w", err)
+	}
+
+	// 如果没有标签，直接返回
+	if tagsStr == "" {
+		return nil
+	}
+
+	// 解析标签（支持 JSON 数组和逗号分隔的字符串）
+	var tagNames []string
+	if strings.HasPrefix(tagsStr, "[") {
+		// JSON 格式
+		if err := json.Unmarshal([]byte(tagsStr), &tagNames); err == nil {
+			// 解析成功
+		} else {
+			// 解析失败，尝试作为逗号分隔处理
+			tagNames = strings.Split(tagsStr, ",")
+		}
+	} else {
+		// 逗号分隔格式
+		tagNames = strings.Split(tagsStr, ",")
+	}
+
+	// 为每个标签创建关联
+	for _, tagName := range tagNames {
+		tagName = strings.TrimSpace(tagName)
+		if tagName == "" {
+			continue
+		}
+
+		// 查找或创建标签
+		var tagID int
+		tags, err := tagRepo.GetAll()
+		if err != nil {
+			log.Printf("获取标签列表失败: %v", err)
+			continue
+		}
+
+		tagExists := false
+		for _, tag := range tags {
+			if tag.Name == tagName {
+				tagID = tag.ID
+				tagExists = true
+				break
+			}
+		}
+
+		if !tagExists {
+			// 创建新标签
+			newTag := &models.Tag{
+				Name:      tagName,
+				IsEnabled: true,
+			}
+			if err := tagRepo.Create(newTag); err != nil {
+				log.Printf("创建标签失败: %v", err)
+				continue
+			}
+			tagID = newTag.ID
+		}
+
+		// 创建文章-标签关联（统一数据源）
+		passageTag := &models.PassageTag{
+			PassageID: passageID,
+			TagID:     tagID,
+		}
+		if err := passageTagRepo.Create(passageTag); err != nil {
+			log.Printf("创建文章-标签关联失败: %v", err)
+		}
 	}
 
 	return nil

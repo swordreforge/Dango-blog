@@ -59,12 +59,14 @@ func GetAppearance() (*AppearanceSettings, error) {
 		"floating_text_enabled", "floating_texts",
 	}
 
-	for _, key := range keys {
-		setting, err := repo.GetByKey(key)
-		if err != nil {
-			log.Printf("Failed to get setting %s: %v", key, err)
-			continue
-		}
+	// 使用批量查询
+	settingsMap, err := repo.GetByKeys(keys)
+	if err != nil {
+		log.Printf("Failed to get appearance settings: %v", err)
+		return &settings, nil
+	}
+
+	for key, setting := range settingsMap {
 		if setting != nil {
 			switch key {
 			case "background_image":

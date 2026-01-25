@@ -20,8 +20,13 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		// 创建新文章
-		var passage models.Passage
-		if err := json.NewDecoder(r.Body).Decode(&passage); err != nil {
+		// 使用临时结构体处理请求体，因为 Passage 模型已移除 Tags 字段
+		type PassageRequest struct {
+			models.Passage
+			Tags string `json:"tags"` // 临时字段，用于接收请求中的标签
+		}
+		var req PassageRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			response := map[string]interface{}{
 				"success": false,
 				"message": "Invalid request body",
@@ -33,7 +38,7 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 验证必填字段
-		if passage.Title == "" || passage.Content == "" {
+		if req.Title == "" || req.Content == "" {
 			response := map[string]interface{}{
 				"success": false,
 				"message": "标题和内容不能为空",
@@ -45,7 +50,7 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 验证分类是否存在，如果不存在则自动创建
-		if passage.Category != "" {
+		if req.Category != "" {
 			categoryRepo := db.GetCategoryRepository()
 			categories, err := categoryRepo.GetAll()
 			if err != nil {
@@ -61,7 +66,7 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 
 			categoryExists := false
 			for _, cat := range categories {
-				if cat.Name == passage.Category {
+				if cat.Name == req.Category {
 					categoryExists = true
 					break
 				}
@@ -70,26 +75,26 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			if !categoryExists {
 				// 分类不存在，自动创建
 				newCategory := &models.Category{
-					Name:      passage.Category,
+					Name:      req.Category,
 					IsEnabled: true,
 				}
 				if err := categoryRepo.Create(newCategory); err != nil {
 					log.Printf("创建分类失败: %v", err)
 					response := map[string]interface{}{
 						"success": false,
-						"message": fmt.Sprintf("创建分类 '%s' 失败", passage.Category),
+						"message": fmt.Sprintf("创建分类 '%s' 失败", req.Category),
 					}
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
 					json.NewEncoder(w).Encode(response)
 					return
 				}
-				log.Printf("自动创建分类: %s", passage.Category)
+				log.Printf("自动创建分类: %s", req.Category)
 			}
 		}
 
 		// 验证标签是否存在，如果不存在则自动创建
-		if passage.Tags != "" {
+		if req.Tags != "" {
 			tagRepo := db.GetTagRepository()
 			tags, err := tagRepo.GetAll()
 			if err != nil {
@@ -104,7 +109,7 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 将标签字符串分割为数组
-			tagNames := strings.Split(passage.Tags, ",")
+			tagNames := strings.Split(req.Tags, ",")
 			validTags := make([]string, 0)
 			createdTags := make([]string, 0)
 
@@ -146,9 +151,6 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			// 更新标签字符串
-			passage.Tags = strings.Join(validTags, ",")
-			
 			// 记录创建的标签（可选，用于日志）
 			if len(createdTags) > 0 {
 				log.Printf("自动创建了以下标签: %s", strings.Join(createdTags, ", "))
@@ -157,15 +159,28 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 设置默认值
 		now := time.Now()
-		
+
 		// 如果请求体中提供了 created_at，则使用该值；否则使用当前时间
-		if !passage.CreatedAt.IsZero() {
+		if !req.CreatedAt.IsZero() {
 			// 使用请求体中提供的创建时间
-			now = passage.CreatedAt
+			now = req.CreatedAt
 		}
-		passage.CreatedAt = now
-		passage.UpdatedAt = now
-		
+
+		// 创建 passage 对象
+		passage := models.Passage{
+			Title:       req.Title,
+			Content:     req.Content,
+			Author:      req.Author,
+			Category:    req.Category,
+			Status:      req.Status,
+			Visibility:  req.Visibility,
+			IsScheduled: req.IsScheduled,
+			PublishedAt: req.PublishedAt,
+			ShowTitle:   req.ShowTitle,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+
 		if passage.Status == "" {
 			passage.Status = "draft"
 		}
@@ -256,23 +271,23 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 处理标签关联
-		if passage.Tags != "" {
+		if req.Tags != "" {
 			tagRepo := db.GetTagRepository()
 			passageTagRepo := db.GetPassageTagRepository()
 
 			// 解析标签（支持 JSON 数组和逗号分隔的字符串）
 			var tagNames []string
-			if strings.HasPrefix(passage.Tags, "[") {
+			if strings.HasPrefix(req.Tags, "[") {
 				// JSON 格式
-				if err := json.Unmarshal([]byte(passage.Tags), &tagNames); err == nil {
+				if err := json.Unmarshal([]byte(req.Tags), &tagNames); err == nil {
 					// 解析成功
 				} else {
 					// 解析失败，尝试作为逗号分隔处理
-					tagNames = strings.Split(passage.Tags, ",")
+					tagNames = strings.Split(req.Tags, ",")
 				}
 			} else {
 				// 逗号分隔格式
-				tagNames = strings.Split(passage.Tags, ",")
+				tagNames = strings.Split(req.Tags, ",")
 			}
 
 			// 为每个标签创建关联
@@ -366,13 +381,33 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 					content = passage.Content
 				}
 
-				data := map[string]interface{}{
+				// 从关联表获取标签
+			passageTagRepo := db.GetPassageTagRepository()
+			tagRepo := db.GetTagRepository()
+			tagIDs, err := passageTagRepo.GetTagIDsByPassageID(passage.ID)
+			tagNames := []string{}
+			if err == nil && len(tagIDs) > 0 {
+				allTags, err := tagRepo.GetAll()
+				if err == nil {
+					tagMap := make(map[int]string)
+					for _, t := range allTags {
+						tagMap[t.ID] = t.Name
+					}
+					for _, tagID := range tagIDs {
+						if name, ok := tagMap[tagID]; ok {
+							tagNames = append(tagNames, name)
+						}
+					}
+				}
+			}
+
+			data := map[string]interface{}{
 					"id":             passage.ID,
 					"title":          passage.Title,
 					"content":        content,
 					"summary":        passage.Summary,
 					"author":         passage.Author,
-					"tags":           passage.Tags,
+					"tags":           tagNames,
 					"category":       passage.Category,
 					"status":         passage.Status,
 					"show_title":     passage.ShowTitle,
@@ -463,14 +498,19 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPut:
 		// 更新文章
-		var passage models.Passage
-		if err := json.NewDecoder(r.Body).Decode(&passage); err != nil {
+		// 使用临时结构体处理请求体，因为 Passage 模型已移除 Tags 字段
+		type PassageUpdateRequest struct {
+			models.Passage
+			Tags string `json:"tags"` // 临时字段，用于接收请求中的标签
+		}
+		var req PassageUpdateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
 		// 验证必填字段
-		if passage.Title == "" || passage.Content == "" {
+		if req.Title == "" || req.Content == "" {
 			response := map[string]interface{}{
 				"success": false,
 				"message": "标题和内容不能为空",
@@ -505,6 +545,9 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(response)
 			return
 		}
+
+		// 将 req.Passage 复制到 passage 变量
+		passage := req.Passage
 
 		// 设置文章ID
 		passage.ID = id
@@ -548,6 +591,11 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 保留原有的 FilePath（除非标题改变）
 		passage.FilePath = existingPassage.FilePath
+
+		// 如果没有提供 category，保留原有值
+		if passage.Category == "" && existingPassage.Category != "" {
+			passage.Category = existingPassage.Category
+		}
 
 		// 如果没有提供原始内容，将HTML内容转换为Markdown（简化处理）
 		if passage.OriginalContent == "" {
@@ -622,7 +670,9 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// 删除旧文件
-				_ = os.Remove(oldFilePath) // 忽略删除错误
+				if err := os.Remove(oldFilePath); err != nil {
+					log.Printf("Warning: failed to delete old file %s: %v", oldFilePath, err)
+				}
 			} else {
 				log.Printf("Renamed file: %s -> %s", filepath.Base(oldFilePath), filepath.Base(newFilePath))
 
@@ -692,20 +742,20 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 重新创建标签关联
-		if passage.Tags != "" {
+		if req.Tags != "" {
 			// 解析标签（支持 JSON 数组和逗号分隔的字符串）
 			var tagNames []string
-			if strings.HasPrefix(passage.Tags, "[") {
+			if strings.HasPrefix(req.Tags, "[") {
 				// JSON 格式
-				if err := json.Unmarshal([]byte(passage.Tags), &tagNames); err == nil {
+				if err := json.Unmarshal([]byte(req.Tags), &tagNames); err == nil {
 					// 解析成功
 				} else {
 					// 解析失败，尝试作为逗号分隔处理
-					tagNames = strings.Split(passage.Tags, ",")
+					tagNames = strings.Split(req.Tags, ",")
 				}
 			} else {
 				// 逗号分隔格式
-				tagNames = strings.Split(passage.Tags, ",")
+				tagNames = strings.Split(req.Tags, ",")
 			}
 
 			// 为每个标签创建关联
@@ -862,8 +912,10 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 		if category, ok := updateData["category"].(string); ok {
 			existingPassage.Category = category
 		}
+		// 标签处理：不再更新 existingPassage.Tags，统一使用 passage_tags 关联表
+		var tagsStr string
 		if tags, ok := updateData["tags"].(string); ok {
-			existingPassage.Tags = tags
+			tagsStr = tags
 		}
 		if summary, ok := updateData["summary"].(string); ok {
 			existingPassage.Summary = summary
@@ -876,6 +928,16 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 		if err := repo.Update(existingPassage); err != nil {
 			http.Error(w, "Failed to update passage", http.StatusInternalServerError)
 			return
+		}
+
+		// 更新标签关联（统一使用 passage_tags 关联表）
+		// 检查是否包含 tags 字段（即使是空字符串也要更新，用于清空标签）
+		if _, hasTagsField := updateData["tags"]; hasTagsField {
+			syncService := service.NewSyncService(repo)
+			if err := syncService.UpdatePassageTags(id, tagsStr); err != nil {
+				// 记录错误但不影响主流程
+				fmt.Printf("Warning: 更新标签关联失败: %v\n", err)
+			}
 		}
 
 		response := map[string]interface{}{

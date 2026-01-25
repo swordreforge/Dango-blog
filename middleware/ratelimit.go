@@ -1,12 +1,15 @@
 package middleware
 
 import (
+	"container/list"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
+	"myblog-gogogo/pkg/metrics"
 )
 
 // RateLimitConfig 限流配置
@@ -25,6 +28,7 @@ type RateLimitStrategy struct {
 type RateLimiter struct {
 	limiter     *rate.Limiter
 	lastUpdate time.Time
+	element     *list.Element // LRU 链表元素
 }
 
 // RateLimitMiddleware 限流中间件
@@ -41,25 +45,66 @@ func RateLimitMiddleware(next http.Handler) http.Handler {
 		},
 	}
 
-	// 存储每个 IP 的限流器
-	// key: "method:ip"
-	// value: *RateLimiter
+	// LRU 缓存配置
+	const maxLimiters = 10000 // 最大限流器数量
+	const cleanupInterval = 1 * time.Minute // 清理间隔
+	const maxIdleTime = 5 * time.Minute // 最大空闲时间
+
+	// 使用 LRU 缓存存储限流器
 	limiters := make(map[string]*RateLimiter)
+	lruList := list.New()
 	var mu sync.RWMutex
 
 	// 清理过期限流器的 goroutine
 	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
+		ticker := time.NewTicker(cleanupInterval)
 		defer ticker.Stop()
 		for range ticker.C {
 			mu.Lock()
 			now := time.Now()
-			for key, limiter := range limiters {
-				// 如果限流器超过5分钟未使用，删除它
-				if now.Sub(limiter.lastUpdate) > 5*time.Minute {
-					delete(limiters, key)
+
+			// 从链表尾部开始清理
+			for lruList.Len() > 0 {
+				// 获取链表尾部元素（最久未使用）
+				elem := lruList.Back()
+				if elem == nil {
+					break
+				}
+
+				limiter := elem.Value.(*RateLimiter)
+
+				// 如果限流器超过最大空闲时间，删除它
+				if now.Sub(limiter.lastUpdate) > maxIdleTime {
+					// 从链表和 map 中删除
+					lruList.Remove(elem)
+					// 找到对应的 key 并删除（需要反向查找）
+					for key, l := range limiters {
+						if l == limiter {
+							delete(limiters, key)
+							break
+						}
+					}
+				} else {
+					// 如果没有过期的限流器，停止清理
+					break
 				}
 			}
+
+			// 如果仍然超过最大容量，强制删除最旧的限流器
+			for len(limiters) > maxLimiters && lruList.Len() > 0 {
+				elem := lruList.Back()
+				if elem != nil {
+					limiter := elem.Value.(*RateLimiter)
+					lruList.Remove(elem)
+					for key, l := range limiters {
+						if l == limiter {
+							delete(limiters, key)
+							break
+						}
+					}
+				}
+			}
+
 			mu.Unlock()
 		}
 	}()
@@ -105,24 +150,35 @@ func RateLimitMiddleware(next http.Handler) http.Handler {
 				limiter:     rate.NewLimiter(rate.Limit(config.RequestsPerSecond), config.BurstSize),
 				lastUpdate: time.Now(),
 			}
+			// 添加到 LRU 链表头部
+			limiter.element = lruList.PushFront(limiter)
 			limiters[key] = limiter
+		} else {
+			// 更新最后使用时间
+			limiter.lastUpdate = time.Now()
+			// 移动到 LRU 链表头部
+			if limiter.element != nil {
+				lruList.MoveToFront(limiter.element)
+			}
 		}
-		limiter.lastUpdate = time.Now()
 		mu.Unlock()
 
 		// 检查是否超过限流
 		if !limiter.limiter.Allow() {
+			// 记录限流拒绝指标
+			metrics.GetMetrics().RecordRateLimitRejected()
+
 			// 超过限流，返回 429 Too Many Requests
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
-			
+
 			// 计算重试时间（基于限流策略）
 			retryAfter := int64(1) // 默认1秒
 			if method == http.MethodPost {
 				retryAfter = 12 // POST 请求建议等待12秒
 			}
-			
-			w.Header().Set("Retry-After", string(rune(retryAfter)))
+
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
 			
 			response := map[string]interface{}{
 				"success": false,

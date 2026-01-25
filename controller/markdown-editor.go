@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -127,17 +128,6 @@ func MarkdownEditorSaveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 处理标签（转换为JSON格式）
-	tagsJSON := "[]"
-	if req.Tags != "" {
-		tagList := strings.Split(req.Tags, ",")
-		for i, tag := range tagList {
-			tagList[i] = strings.TrimSpace(tag)
-		}
-		tagsBytes, _ := json.Marshal(tagList)
-		tagsJSON = string(tagsBytes)
-	}
-
 	// 设置默认分类
 	if req.Category == "" {
 		req.Category = "未分类"
@@ -158,7 +148,6 @@ func MarkdownEditorSaveHandler(w http.ResponseWriter, r *http.Request) {
 		OriginalContent: req.Content,
 		Summary:         req.Summary,
 		Author:          username,
-		Tags:            tagsJSON,
 		Category:        req.Category,
 		Status:          "published",
 		FilePath:        filePath,
@@ -176,6 +165,15 @@ func MarkdownEditorSaveHandler(w http.ResponseWriter, r *http.Request) {
 			"message": "保存到数据库失败: " + err.Error(),
 		})
 		return
+	}
+
+	// 处理标签关联（使用 passage_tags 关联表）
+	if req.Tags != "" {
+		syncService := service.NewSyncService(repo)
+		if err := syncService.UpdatePassageTags(passage.ID, req.Tags); err != nil {
+			// 记录错误但不影响主流程
+			log.Printf("Warning: 创建标签关联失败: %v", err)
+		}
 	}
 
 	// 返回成功响应
