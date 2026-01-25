@@ -35,35 +35,43 @@ chmod +x myblog-gogogo && ./myblog-gogogo
 感谢flag库的接口,通过短标签即可识别参数进行运行,一下是常用参数
 ```sh
   -db-conn string
-    	Database connection string (default "./db/data/blog.db")
-    	数据库连接地址
-  -db-driver string
-    	Database driver (sqlite3, mysql, postgres) (default "sqlite3")
-    	数据库连接类型,提供数据库连接类型,目前只为sqlite3初始化提供初始化,其他语言只提供接口
-  -enable-tls
-    	Enable TLS (HTTPS/HTTP3)
-    	是否启用http/3,http/2如果启用则必须要配合-tls-cert,-tls-key参数
-  -jwt-secret string
-    	JWT secret key (leave empty to auto-generate or load from ./data/jwt-secret)
-    	jwt密钥不填写会自动生成
-  -kafka-brokers string
-    	Kafka brokers (comma-separated, leave empty to disable)
-    	卡夫卡队列，支持高并发,没有java Kafka服务,服务器内存小于4G不建议启动此选项
-  -kafka-group-id string
-    	Kafka consumer group ID (default "myblog-consumer-group")
-    	卡夫卡集群ID需要配合前面的选项
-  -log-level string
-    	Log level (debug, info, warn, error) (default "info")
-    	日志等级默认info级
-  -port string
-    	Port to listen on (default "8080")
-    	监听的端口
-  -tls-cert string
-    	Path to TLS certificate file (absolute path)
-    	https证书,需要从一些服务商网站请求获取，在本地测试应该填写fullchain.pem
-  -tls-key string
-    	Path to TLS private key file (absolute path)
-    	privkey.pem 或一些key文件
+数据库连接字符串 (默认 "./db/data/blog.db")
+-db-conn-max-idle-time int
+数据库连接最大空闲时间（分钟） (默认 10)
+-db-conn-max-lifetime int
+数据库连接最大生存时间（分钟） (默认 30)
+-db-driver string
+数据库驱动（sqlite3, mysql, postgres） (默认 "sqlite3")
+-db-max-idle-conns int
+数据库最大空闲连接数 (默认 5)
+-db-max-open-conns int
+数据库最大打开连接数 (默认 15)
+-enable-file-watch
+启用对 Markdown 文件的文件监控
+-enable-tls
+启用 TLS (HTTPS/HTTP3)
+-jwt-secret string
+JWT 密钥（留空则自动生成或从 ./data/jwt-secret 加载）
+-kafka-brokers string
+Kafka 代理地址（逗号分隔，留空则禁用）
+-kafka-group-id string
+Kafka 消费者组 ID (默认 "myblog-consumer-group")
+-kafka-producer-queue-size int
+Kafka 异步生产者队列大小 (默认 1000)
+-log-level string
+日志级别（debug, info, warn, error） (默认 "info")
+-port string
+监听端口 (默认 "8080")
+-session-cleanup-interval int
+会话清理间隔（分钟） (默认 5)
+-tls-cert string
+TLS 证书文件路径（绝对路径）
+-tls-key string
+TLS 私钥文件路径（绝对路径）
+-worker-count int
+工作池的工作线程数量 (默认 2)
+-worker-queue-size int
+工作池队列大小 (默认 1000)
 ```
 ### 1.3 长期运行到服务(以通过let's Encrypt certbot为例)
 推荐使用systemd服务管理,端口443⭐
