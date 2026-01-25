@@ -26,7 +26,6 @@ const AuthManager = {
       // 创建ECC加密器
       this.eccEncryptor = new ECCEncryptor();
       await this.eccEncryptor.init();
-      console.log('ECC encryption initialized successfully');
     } catch (error) {
       console.error('Failed to initialize ECC encryption:', error);
       this.eccEncryptor = null;
@@ -41,7 +40,13 @@ const AuthManager = {
     if (token && user) {
       this.isLoggedIn = true;
       this.token = token;
-      this.currentUser = JSON.parse(user);
+      try {
+        this.currentUser = JSON.parse(user);
+      } catch (error) {
+        console.error('Failed to parse user data:', error);
+        this.currentUser = null;
+        this.isLoggedIn = false;
+      }
     } else {
       this.isLoggedIn = false;
       this.token = null;

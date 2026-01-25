@@ -2636,16 +2636,12 @@ mermaid.initialize({
 async function renderMathAndDiagrams(container) {
   if (!container) return;
 
-  console.log('开始渲染数学公式和流程图');
-
   // 处理 Mermaid 代码块 - 将 pre code 转换为 mermaid 容器
   const codeBlocks = container.querySelectorAll('pre code');
-  console.log(`找到 ${codeBlocks.length} 个代码块`);
 
   codeBlocks.forEach((block, index) => {
     // 检查 class 属性是否包含 'language-mermaid'
     if (block.classList.contains('language-mermaid') || block.className.includes('mermaid')) {
-      console.log(`发现 Mermaid 代码块 #${index}`);
       const pre = block.parentElement;
       const mermaidDiv = document.createElement('div');
       mermaidDiv.className = 'mermaid';
@@ -2671,7 +2667,6 @@ async function renderMathAndDiagrams(container) {
   });
 
   // 渲染数学公式
-  console.log('开始渲染数学公式');
   renderMathInElement(container, {
     delimiters: [
       {left: '$$', right: '$$', display: true},
@@ -2682,23 +2677,19 @@ async function renderMathAndDiagrams(container) {
     throwOnError: false,
     strict: false
   });
-  console.log('数学公式渲染完成');
 
   // 渲染 Mermaid 流程图
   const mermaidBlocks = container.querySelectorAll('.mermaid');
-  console.log(`找到 ${mermaidBlocks.length} 个 Mermaid 容器`);
 
   if (mermaidBlocks.length > 0) {
     try {
       await mermaid.run({
         nodes: [...mermaidBlocks],
       });
-      console.log('Mermaid 渲染成功');
       
       // 动态修复Mermaid文字颜色
       fixMermaidTextColor();
     } catch (err) {
-      console.error('Mermaid 渲染失败:', err);
       mermaidBlocks.forEach(block => {
         block.innerHTML = `<div style="color: red; padding: 10px;">流程图渲染失败: ${err.message}</div>`;
       });
@@ -2728,8 +2719,6 @@ function fixMermaidTextColor() {
       text.style.fill = '#808080';
     });
   });
-
-  console.log('Mermaid文字颜色已修复');
 }
 
 // 从后端API获取文章数据
@@ -2747,8 +2736,8 @@ function initApp() {
 // 从后端API获取文章数据
 async function fetchArticlesData() {
   try {
-    // 获取文章列表
-    const response = await fetch('/api/passages');
+    // 获取文章列表（获取所有文章）
+    const response = await fetch('/api/passages?limit=1000&offset=0');
     const result = await response.json();
     
     if (result.success && result.data) {

@@ -44,7 +44,7 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// 验证分类是否存在（如果提供了分类）
+		// 验证分类是否存在，如果不存在则自动创建
 		if passage.Category != "" {
 			categoryRepo := db.GetCategoryRepository()
 			categories, err := categoryRepo.GetAll()
@@ -68,18 +68,27 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !categoryExists {
-				response := map[string]interface{}{
-					"success": false,
-					"message": fmt.Sprintf("分类 '%s' 不存在", passage.Category),
+				// 分类不存在，自动创建
+				newCategory := &models.Category{
+					Name:      passage.Category,
+					IsEnabled: true,
 				}
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(response)
-				return
+				if err := categoryRepo.Create(newCategory); err != nil {
+					log.Printf("创建分类失败: %v", err)
+					response := map[string]interface{}{
+						"success": false,
+						"message": fmt.Sprintf("创建分类 '%s' 失败", passage.Category),
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(response)
+					return
+				}
+				log.Printf("自动创建分类: %s", passage.Category)
 			}
 		}
 
-		// 验证标签是否存在（如果提供了标签）
+		// 验证标签是否存在，如果不存在则自动创建
 		if passage.Tags != "" {
 			tagRepo := db.GetTagRepository()
 			tags, err := tagRepo.GetAll()
@@ -97,7 +106,7 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			// 将标签字符串分割为数组
 			tagNames := strings.Split(passage.Tags, ",")
 			validTags := make([]string, 0)
-			invalidTags := make([]string, 0)
+			createdTags := make([]string, 0)
 
 			for _, tagName := range tagNames {
 				trimmedName := strings.TrimSpace(tagName)
@@ -116,30 +125,47 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 				if tagExists {
 					validTags = append(validTags, trimmedName)
 				} else {
-					invalidTags = append(invalidTags, trimmedName)
+					// 标签不存在，自动创建
+					newTag := &models.Tag{
+						Name:      trimmedName,
+						IsEnabled: true,
+					}
+					if err := tagRepo.Create(newTag); err != nil {
+						log.Printf("创建标签失败: %v", err)
+						response := map[string]interface{}{
+							"success": false,
+							"message": fmt.Sprintf("创建标签 '%s' 失败", trimmedName),
+						}
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusInternalServerError)
+						json.NewEncoder(w).Encode(response)
+						return
+					}
+					createdTags = append(createdTags, trimmedName)
+					validTags = append(validTags, trimmedName)
 				}
 			}
 
-			// 如果有无效标签，返回错误
-			if len(invalidTags) > 0 {
-				response := map[string]interface{}{
-					"success": false,
-					"message": fmt.Sprintf("以下标签不存在: %s", strings.Join(invalidTags, ", ")),
-				}
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(response)
-				return
-			}
-
-			// 更新标签字符串为有效标签
+			// 更新标签字符串
 			passage.Tags = strings.Join(validTags, ",")
+			
+			// 记录创建的标签（可选，用于日志）
+			if len(createdTags) > 0 {
+				log.Printf("自动创建了以下标签: %s", strings.Join(createdTags, ", "))
+			}
 		}
 
 		// 设置默认值
 		now := time.Now()
+		
+		// 如果请求体中提供了 created_at，则使用该值；否则使用当前时间
+		if !passage.CreatedAt.IsZero() {
+			// 使用请求体中提供的创建时间
+			now = passage.CreatedAt
+		}
 		passage.CreatedAt = now
 		passage.UpdatedAt = now
+		
 		if passage.Status == "" {
 			passage.Status = "draft"
 		}
@@ -227,6 +253,74 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(response)
 			return
+		}
+
+		// 处理标签关联
+		if passage.Tags != "" {
+			tagRepo := db.GetTagRepository()
+			passageTagRepo := db.GetPassageTagRepository()
+
+			// 解析标签（支持 JSON 数组和逗号分隔的字符串）
+			var tagNames []string
+			if strings.HasPrefix(passage.Tags, "[") {
+				// JSON 格式
+				if err := json.Unmarshal([]byte(passage.Tags), &tagNames); err == nil {
+					// 解析成功
+				} else {
+					// 解析失败，尝试作为逗号分隔处理
+					tagNames = strings.Split(passage.Tags, ",")
+				}
+			} else {
+				// 逗号分隔格式
+				tagNames = strings.Split(passage.Tags, ",")
+			}
+
+			// 为每个标签创建关联
+			for _, tagName := range tagNames {
+				tagName = strings.TrimSpace(tagName)
+				if tagName == "" {
+					continue
+				}
+
+				// 查找或创建标签
+				var tagID int
+				tags, err := tagRepo.GetAll()
+				if err != nil {
+					log.Printf("获取标签列表失败: %v", err)
+					continue
+				}
+
+				tagExists := false
+				for _, tag := range tags {
+					if tag.Name == tagName {
+						tagID = tag.ID
+						tagExists = true
+						break
+					}
+				}
+
+				if !tagExists {
+					// 创建新标签
+					newTag := &models.Tag{
+						Name:      tagName,
+						IsEnabled: true,
+					}
+					if err := tagRepo.Create(newTag); err != nil {
+						log.Printf("创建标签失败: %v", err)
+						continue
+					}
+					tagID = newTag.ID
+				}
+
+				// 创建文章-标签关联
+				passageTag := &models.PassageTag{
+					PassageID: passage.ID,
+					TagID:     tagID,
+				}
+				if err := passageTagRepo.Create(passageTag); err != nil {
+					log.Printf("创建文章-标签关联失败: %v", err)
+				}
+			}
 		}
 
 		response := map[string]interface{}{
@@ -586,6 +680,80 @@ func AdminPassagesHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(response)
 			return
+		}
+
+		// 更新标签关联
+		tagRepo := db.GetTagRepository()
+		passageTagRepo := db.GetPassageTagRepository()
+
+		// 删除现有的标签关联
+		if err := passageTagRepo.DeleteByPassageID(passage.ID); err != nil {
+			log.Printf("删除文章标签关联失败: %v", err)
+		}
+
+		// 重新创建标签关联
+		if passage.Tags != "" {
+			// 解析标签（支持 JSON 数组和逗号分隔的字符串）
+			var tagNames []string
+			if strings.HasPrefix(passage.Tags, "[") {
+				// JSON 格式
+				if err := json.Unmarshal([]byte(passage.Tags), &tagNames); err == nil {
+					// 解析成功
+				} else {
+					// 解析失败，尝试作为逗号分隔处理
+					tagNames = strings.Split(passage.Tags, ",")
+				}
+			} else {
+				// 逗号分隔格式
+				tagNames = strings.Split(passage.Tags, ",")
+			}
+
+			// 为每个标签创建关联
+			for _, tagName := range tagNames {
+				tagName = strings.TrimSpace(tagName)
+				if tagName == "" {
+					continue
+				}
+
+				// 查找或创建标签
+				var tagID int
+				tags, err := tagRepo.GetAll()
+				if err != nil {
+					log.Printf("获取标签列表失败: %v", err)
+					continue
+				}
+
+				tagExists := false
+				for _, tag := range tags {
+					if tag.Name == tagName {
+						tagID = tag.ID
+						tagExists = true
+						break
+					}
+				}
+
+				if !tagExists {
+					// 创建新标签
+					newTag := &models.Tag{
+						Name:      tagName,
+						IsEnabled: true,
+					}
+					if err := tagRepo.Create(newTag); err != nil {
+						log.Printf("创建标签失败: %v", err)
+						continue
+					}
+					tagID = newTag.ID
+				}
+
+				// 创建文章-标签关联
+				passageTag := &models.PassageTag{
+					PassageID: passage.ID,
+					TagID:     tagID,
+				}
+				if err := passageTagRepo.Create(passageTag); err != nil {
+					log.Printf("创建文章-标签关联失败: %v", err)
+				}
+			}
 		}
 
 		response := map[string]interface{}{

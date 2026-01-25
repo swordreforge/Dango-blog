@@ -1,6 +1,7 @@
 package static
 
 import (
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -30,9 +31,32 @@ func FileServer(root http.FileSystem) http.Handler {
 			return
 		}
 
-		// 根据文件扩展名设置正确的 MIME 类型
+		// 获取文件扩展名
 		ext := filepath.Ext(r.URL.Path)
-		w.Header().Set("Content-Type", GetMimeType(ext))
+		mimeType := GetMimeType(ext)
+
+		// 对于 .mp3 扩展名的文件，检查是否实际上是 MP4/M4A 格式
+		if strings.ToLower(ext) == ".mp3" {
+			// 读取文件的前12字节用于检测 ftyp 盒（MP4 格式标识）
+			buffer := make([]byte, 12)
+			n, err := f.Read(buffer)
+			if err == nil && n >= 12 {
+				// MP4 文件以 ftyp 盒开始，格式为：[4字节大小] + [4字节类型] + [4字节品牌]
+				// ftyp 盒的类型是 "ftyp"
+				if string(buffer[4:8]) == "ftyp" {
+					// 这是 MP4 格式，使用 audio/mp4 MIME 类型
+					mimeType = "audio/mp4"
+				}
+			}
+			
+			// 尝试回到文件开头，以便 http.ServeContent 能正确读取
+			if seeker, ok := f.(io.Seeker); ok {
+				seeker.Seek(0, 0)
+			}
+		}
+
+		// 设置 Content-Type
+		w.Header().Set("Content-Type", mimeType)
 
 		// 使用 http.ServeContent 提供文件内容
 		http.ServeContent(w, r, stat.Name(), stat.ModTime(), f)

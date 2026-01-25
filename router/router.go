@@ -2,6 +2,8 @@ package router
 
 import (
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"myblog-gogogo/controller"
 )
@@ -22,8 +24,21 @@ func SetupRoutes() *http.ServeMux {
 	// 配置API路由
 	SetupAPIRoutes(mux)
 
+	// 服务根目录下的HTML文件（测试文件等）
+	mux.HandleFunc("/test_", func(w http.ResponseWriter, r *http.Request) {
+		filePath := filepath.Join(baseDir, r.URL.Path)
+		http.ServeFile(w, r, filePath)
+	})
+
 	// 404处理器（必须放在最后）
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// 检查是否是根目录下的HTML文件
+		if strings.HasSuffix(r.URL.Path, ".html") {
+			filePath := filepath.Join(baseDir, r.URL.Path)
+			http.ServeFile(w, r, filePath)
+			return
+		}
+		
 		if r.URL.Path != "/" {
 			controller.RenderStatusPage(w, http.StatusNotFound)
 			return

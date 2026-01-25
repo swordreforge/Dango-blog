@@ -32,6 +32,7 @@ var (
 	aboutMainCardRepo   repositories.AboutMainCardRepository
 	aboutSubCardRepo    repositories.AboutSubCardRepository
 	attachmentRepo      repositories.AttachmentRepository
+	passageTagRepo      repositories.PassageTagRepository
 )
 
 // InitDB 初始化数据库
@@ -68,6 +69,7 @@ func InitDB(driver, dsn string) error {
 	aboutMainCardRepo = repositories.NewSQLiteAboutMainCardRepository(dbInstance)
 	aboutSubCardRepo = repositories.NewSQLiteAboutSubCardRepository(dbInstance)
 	attachmentRepo = repositories.NewSQLiteAttachmentRepository(dbInstance)
+	passageTagRepo = repositories.NewPassageTagRepository(dbInstance)
 
 	// 插入默认数据
 	if err := seedData(); err != nil {
@@ -1450,4 +1452,9 @@ func GetTagRepository() repositories.TagRepository {
 // GetArticleViewRepository 获取文章阅读仓库
 func GetArticleViewRepository() repositories.ArticleViewRepository {
 	return repositories.NewSQLiteArticleViewRepository(dbInstance)
+}
+
+// GetPassageTagRepository 获取文章-标签关联仓库
+func GetPassageTagRepository() repositories.PassageTagRepository {
+	return passageTagRepo
 }

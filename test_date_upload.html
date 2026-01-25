@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试日期上传功能</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>测试日期上传功能</h1>
+    
+    <form id="testForm">
+        <div class="form-group">
+            <label for="title">文章标题 *</label>
+            <input type="text" id="title" required placeholder="请输入标题">
+        </div>
+        
+        <div class="form-group">
+            <label for="author">作者 *</label>
+            <input type="text" id="author" value="管理员" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="createdAt">创建日期（可选，格式：YYYY-MM-DD）</label>
+            <input type="date" id="createdAt" placeholder="留空则使用当前日期">
+        </div>
+        
+        <div class="form-group">
+            <label for="category">分类</label>
+            <input type="text" id="category" placeholder="可选">
+        </div>
+        
+        <div class="form-group">
+            <label for="tags">标签（逗号分隔）</label>
+            <input type="text" id="tags" placeholder="可选">
+        </div>
+        
+        <div class="form-group">
+            <label for="content">文章内容 *</label>
+            <textarea id="content" rows="10" required placeholder="请输入文章内容（支持Markdown）"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="status">状态</label>
+            <select id="status">
+                <option value="draft">草稿</option>
+                <option value="published">已发布</option>
+                <option value="pending">待审核</option>
+            </select>
+        </div>
+        
+        <button type="submit">提交测试</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '提交中...';
+            resultDiv.className = '';
+            
+            // 获取表单数据
+            const data = {
+                title: document.getElementById('title').value,
+                author: document.getElementById('author').value,
+                category: document.getElementById('category').value,
+                tags: document.getElementById('tags').value,
+                content: document.getElementById('content').value,
+                status: document.getElementById('status').value
+            };
+            
+            // 如果指定了日期，添加到请求中
+            const createdAt = document.getElementById('createdAt').value;
+            if (createdAt) {
+                data.created_at = createdAt + 'T00:00:00Z';
+            }
+            
+            console.log('提交的数据:', data);
+            
+            try {
+                const token = localStorage.getItem('auth_token');
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch('/api/admin/passages', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                console.log('服务器响应:', result);
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <h3>提交成功！</h3>
+                        <p>文章ID: ${result.data.id}</p>
+                        <p>标题: ${result.data.title}</p>
+                        <p>状态: ${result.data.status}</p>
+                        <p>创建日期: ${result.data.created_at}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3>提交失败</h3>
+                        <p>${result.message}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                    resultDiv.className = 'error';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>提交出错</h3>
+                    <p>${error.message}</p>
+                `;
+                resultDiv.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ class MusicPlayer {
     this.playlist = [];
     this.autoPlayPending = false; // 自动播放待处理标志
     this.selectedPlaylistIndex = 0; // 播放列表选中的索引
+    this.playPromise = null; // 跟踪当前的播放 Promise
     this.settings = {
       enabled: false,
       autoPlay: false,
@@ -232,7 +233,6 @@ class MusicPlayer {
           position: settings.position !== undefined ? settings.position : settings.music_position
         };
         this.settings = { ...this.settings, ...normalizedSettings };
-        console.log('音乐设置已加载:', this.settings);
       }
     } catch (error) {
       console.error('加载音乐设置失败:', error);
@@ -482,10 +482,27 @@ class MusicPlayer {
     }
 
     if (this.audio.src) {
-      this.audio.play();
-      this.isPlaying = true;
-      this.updatePlayButton();
-      this.saveState();
+      // 如果有正在进行的播放 Promise，先等待它完成
+      if (this.playPromise) {
+        this.playPromise.catch(() => {}); // 忽略之前的错误
+      }
+
+      this.playPromise = this.audio.play();
+      if (this.playPromise !== undefined) {
+        this.playPromise.then(() => {
+          this.isPlaying = true;
+          this.updatePlayButton();
+          this.saveState();
+        }).catch(error => {
+          console.warn('播放失败:', error.name, error.message);
+          // 如果是 AbortError，说明播放被中断，不需要特殊处理
+          if (error.name !== 'AbortError') {
+            this.isPlaying = false;
+            this.updatePlayButton();
+          }
+          this.playPromise = null; // 清除 Promise
+        });
+      }
     } else {
       console.warn('播放列表为空，无法播放');
     }
@@ -495,6 +512,7 @@ class MusicPlayer {
     if (this.audio) {
       this.audio.pause();
       this.isPlaying = false;
+      this.playPromise = null; // 清除播放 Promise
       this.updatePlayButton();
       this.saveState();
     }
@@ -542,14 +560,30 @@ class MusicPlayer {
 
         this.audio.addEventListener('loadedmetadata', onLoadedMetadata);
 
-        this.audio.play();
-        this.isPlaying = true;
-        this.updatePlayButton();
-        this.updateTrackInfo(track);
-        this.updatePlaylistUI();
-
-        // 保存状态
-        this.saveState();
+        const playPromise = this.audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            this.isPlaying = true;
+            this.updatePlayButton();
+            this.updateTrackInfo(track);
+            this.updatePlaylistUI();
+            this.saveState();
+          }).catch(error => {
+            console.warn('播放失败:', error.name, error.message);
+            if (error.name !== 'AbortError') {
+              this.isPlaying = false;
+              this.updatePlayButton();
+            }
+          });
+        } else {
+          // 旧版浏览器不支持 Promise
+          this.audio.play();
+          this.isPlaying = true;
+          this.updatePlayButton();
+          this.updateTrackInfo(track);
+          this.updatePlaylistUI();
+          this.saveState();
+        }
       }
     }
   }

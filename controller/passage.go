@@ -62,24 +62,44 @@ func PassageAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 转换为API响应格式
 		data := make([]map[string]interface{}, len(passages))
+		passageTagRepo := db.GetPassageTagRepository()
+		tagRepo := db.GetTagRepository()
+
 		for i, p := range passages {
+			// 从关联表获取标签
+			tagIDs, err := passageTagRepo.GetTagIDsByPassageID(p.ID)
+			var tagNames []string
+			if err == nil && len(tagIDs) > 0 {
+				// 获取标签名称
+				allTags, _ := tagRepo.GetAll()
+				tagMap := make(map[int]string)
+				for _, t := range allTags {
+					tagMap[t.ID] = t.Name
+				}
+				for _, tagID := range tagIDs {
+					if name, ok := tagMap[tagID]; ok {
+						tagNames = append(tagNames, name)
+					}
+				}
+			}
+
 			article := map[string]interface{}{
 				"id":         p.ID,
 				"title":      p.Title,
 				"summary":    p.Summary,
-				"tags":       parseTags(p.Tags),
+				"tags":       tagNames,
 				"category":   p.Category,
 				"created_at": p.CreatedAt.Format("2006-01-02"),
 				"status":     p.Status,
 				"visibility": p.Visibility,
 				"is_scheduled": p.IsScheduled,
 			}
-			
+
 			// 如果是定时发布，添加发布时间
 			if p.IsScheduled && !p.PublishedAt.IsZero() {
 				article["published_at"] = p.PublishedAt.Format("2006-01-02 15:04:05")
 			}
-			
+
 			data[i] = article
 		}
 
@@ -229,6 +249,25 @@ func PassageDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 从关联表获取标签
+	passageTagRepo := db.GetPassageTagRepository()
+	tagRepo := db.GetTagRepository()
+	tagIDs, err := passageTagRepo.GetTagIDsByPassageID(id)
+	var tagNames []string
+	if err == nil && len(tagIDs) > 0 {
+		// 获取标签名称
+		allTags, _ := tagRepo.GetAll()
+		tagMap := make(map[int]string)
+		for _, t := range allTags {
+			tagMap[t.ID] = t.Name
+		}
+		for _, tagID := range tagIDs {
+			if name, ok := tagMap[tagID]; ok {
+				tagNames = append(tagNames, name)
+			}
+		}
+	}
+
 	response := map[string]interface{}{
 		"success": true,
 		"data": map[string]interface{}{
@@ -236,7 +275,7 @@ func PassageDetailHandler(w http.ResponseWriter, r *http.Request) {
 			"title":      accessResp.Passage.Title,
 			"content":    accessResp.Passage.Content,
 			"summary":    passage.Summary,
-			"tags":       parseTags(passage.Tags),
+			"tags":       tagNames,
 			"category":   passage.Category,
 			"show_title": accessResp.Passage.ShowTitle,
 			"created_at": accessResp.Passage.CreatedAt.Format("2006-01-02"),
@@ -255,33 +294,38 @@ func TagsAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从数据库获取所有文章的标签
-	repo := db.GetPassageRepository()
-	passages, err := repo.GetAll(1000, 0) // 获取所有文章
+	// 从 tags 表获取所有标签
+	tagRepo := db.GetTagRepository()
+	tags, err := tagRepo.GetAll()
 	if err != nil {
 		apperrors.SendError(w, apperrors.Wrap(err, "DB_ERROR", "获取标签失败"))
 		return
 	}
 
-	// 统计标签使用次数
-	tagCount := make(map[string]int)
-	for _, p := range passages {
-		tags := parseTags(p.Tags)
-		for _, tag := range tags {
-			tagCount[tag]++
+	// 从 passage_tags 表统计每个标签的使用次数
+	passageTagRepo := db.GetPassageTagRepository()
+	tagCountMap := make(map[int]int)
+	for _, tag := range tags {
+		count, err := passageTagRepo.CountByTagID(tag.ID)
+		if err != nil {
+			apperrors.SendError(w, apperrors.Wrap(err, "DB_ERROR", "统计标签使用次数失败"))
+			return
 		}
+		tagCountMap[tag.ID] = count
 	}
 
 	// 转换为API响应格式
-	data := make([]map[string]interface{}, 0, len(tagCount))
-	i := 1
-	for tag, count := range tagCount {
+	data := make([]map[string]interface{}, 0, len(tags))
+	for _, tag := range tags {
+		// 只返回启用的标签
+		if !tag.IsEnabled {
+			continue
+		}
 		data = append(data, map[string]interface{}{
-			"id":    i,
-			"name":  tag,
-			"count": count,
+			"id":    tag.ID,
+			"name":  tag.Name,
+			"count": tagCountMap[tag.ID],
 		})
-		i++
 	}
 
 	response := map[string]interface{}{
